@@ -6,7 +6,7 @@ jsmpeg
 jsmpeg is a MPEG1 Decoder, written in JavaScript. It's "hand ported", i.e. not compiled with
 emscripten or similar. This will probably make it obsolete with the advent of asmjs.
 
-Some demos and more info: (phoboslab.org/log/2013/05/mpeg1-video-decoder-in-javascript)[http://www.phoboslab.org/log/2013/05/mpeg1-video-decoder-in-javascript]
+Some demos and more info: [phoboslab.org/log/2013/05/mpeg1-video-decoder-in-javascript](http://www.phoboslab.org/log/2013/05/mpeg1-video-decoder-in-javascript)
 
 
 ### Usage ###
@@ -48,7 +48,7 @@ to fix, but most encoders seem to not use B-Frames at all by default.
 - Only raw MPEG video streams are supported. The decoder hates Stream Packet Headers in between
 macroblocks.
 
-You can use (FFmpeg)[http://www.ffmpeg.org/] to encode videos in a suited format. This will crop
+You can use [FFmpeg](http://www.ffmpeg.org/) to encode videos in a suited format. This will crop
 the size to a multiple of 2, omit B-Frames and force a raw video stream:
 
 ```
