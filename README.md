@@ -22,7 +22,7 @@ var player = new jsmpeg('file.mpeg', {canvas: canvas, autoplay: true, loop: true
 
 player.pause();
 player.play();
-player.stops();
+player.stop();
 
 
 // An 'onload' callback can be specified in the 'options' argument
