@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>jsmpeg Demo - Big Buck Bunny</title>
+	<style type="text/css">
+		html,body {
+			background-color: #000;
+			color: #555;
+			font-family: helvetica, arial, sans-serif;
+			margin: 0;
+			padding: 0;
+			font-size: 12pt;
+		}
+		
+		#container {
+			position: absolute;
+			left: 0;
+			right: 0;
+			top: 30px;
+			margin: auto;
+			width: 640px;
+		}
+		a {
+			color: #777;
+			text-decoration: none;
+		}
+		a:hover {
+			color: #ccc;
+		}
+	</style>
+	<script type="text/javascript" src="jsmpg.js"></script>
+</head>
+<body>
+	<div id="container">
+		<div><canvas id="videoCanvas" width="640" height="360"></canvas></div>
+		The first 3 minutes (~13mb) of <a href="http://www.bigbuckbunny.org">Big Buck Bunny</a>, 
+		decoded in JavaScript with <a href="http://www.phoboslab.org/log/2013/05/mpeg1-video-decoder-in-javascript">jsmpeg</a>.
+	</div>
+	<script type="text/javascript">
+		var canvas = document.getElementById('videoCanvas');
+		var player = new jsmpeg('big-buck-bunny.mpg', {canvas:canvas, autoplay:true, loop: true});
+		canvas.onclick = function() {
+			if (player.playing)
+				player.pause();
+			else
+				player.play();
+		}
+	</script>
+</body>
+</html>
