@@ -266,7 +266,7 @@ jsmpeg.prototype.forwardRSize = 0;
 jsmpeg.prototype.forwardF = 0;
 
 
-jsmpeg.prototype.decodePicture = function() {	
+jsmpeg.prototype.decodePicture = function() {
 	this.buffer.advance(10); // skip temporalReference
 	this.pictureCodingType = this.buffer.getBits(3);
 	this.buffer.advance(16); // skip vbv_delay
@@ -894,14 +894,14 @@ jsmpeg.prototype.decodeBlock = function(block) {
 	}
 	
 	n = 0;
+	
+	var blockData = this.blockData;
 	if( this.macroblockIntra ) {
+		var mult = 0;
 		// Overwrite (no prediction)
 		for( var i = 0; i < 8; i++ ) {
 			for( var j = 0; j < 8; j++ ) {
-				var value = this.blockData[n];
-				n++;
-				destArray[destIndex] = value;
-				destIndex++;
+				destArray[destIndex++] = blockData[n++];
 			}
 			destIndex += scan;
 		}
@@ -910,10 +910,7 @@ jsmpeg.prototype.decodeBlock = function(block) {
 		// Add data to the predicted macroblock
 		for( var i = 0; i < 8; i++ ) {
 			for( var j = 0; j < 8; j++ ) {
-				var value = this.blockData[n] + destArray[destIndex];
-				n++;
-				destArray[destIndex] = value;
-				destIndex++;
+				destArray[destIndex++] += blockData[n++];
 			}
 			destIndex += scan;
 		}
@@ -1687,18 +1684,6 @@ var MACROBLOCK_TYPE_TABLES = [
 // ----------------------------------------------------------------------------
 // Bit Reader 
 
-var BIT_MASK = new Uint32Array([
-	0x00000000, 0x00000001, 0x00000003, 0x00000007,
-	0x0000000f, 0x0000001f, 0x0000003f, 0x0000007f,
-	0x000000ff, 0x000001ff, 0x000003ff, 0x000007ff,
-	0x00000fff, 0x00001fff, 0x00003fff, 0x00007fff,
-	0x0000ffff, 0x0001ffff, 0x0003ffff, 0x0007ffff,
-	0x000fffff, 0x001fffff, 0x003fffff, 0x007fffff,
-	0x00ffffff, 0x01ffffff, 0x03ffffff, 0x07ffffff,
-	0x0fffffff, 0x1fffffff, 0x3fffffff, 0x7fffffff,
-	0xffffffff
-]);
-	
 var BitReader = function(arrayBuffer) {
 	this.bytes = new Uint8Array(arrayBuffer);
 	this.length = this.bytes.length;
@@ -1739,26 +1724,26 @@ BitReader.prototype.nextBits = function(count) {
 		room = (8 - this.index % 8);
 
 	if( room >= count ) {
-		return (this.bytes[byteOffset] >> (room - count)) & BIT_MASK[count];
+		return (this.bytes[byteOffset] >> (room - count)) & (0xff >> (8-count));
 	}
 
 	var 
 		leftover = (this.index + count) % 8, // Leftover bits in last byte
 		end = (this.index + count -1) >> 3,
-		value = this.bytes[byteOffset] & BIT_MASK[room]; // Fill out first byte
+		value = this.bytes[byteOffset] & (0xff >> (8-room)); // Fill out first byte
 
 	for( byteOffset++; byteOffset < end; byteOffset++ ) {
 		value <<= 8; // Shift and
-		value |= this.bytes[byteOffset] & BIT_MASK[8]; // Put next byte
+		value |= this.bytes[byteOffset]; // Put next byte
 	}
 
 	if (leftover > 0) {
 		value <<= leftover; // Make room for remaining bits
-		value |= (this.bytes[byteOffset] >> (8 - leftover)) & BIT_MASK[leftover];
+		value |= (this.bytes[byteOffset] >> (8 - leftover));
 	}
 	else {
 		value <<= 8;
-		value |= this.bytes[byteOffset] & BIT_MASK[8];
+		value |= this.bytes[byteOffset];
 	}
 	
 	return value;
