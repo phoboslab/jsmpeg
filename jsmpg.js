@@ -271,13 +271,13 @@ jsmpeg.prototype.decodePicture = function() {
 	this.pictureCodingType = this.buffer.getBits(3);
 	this.buffer.advance(16); // skip vbv_delay
 	
-	// Skip D-pictures or unknown coding type
-	if( this.pictureCodingType <= 0 || this.pictureCodingType >= PICTURE_TYPE_D ) {
+	// Skip B and D frames or unknown coding type
+	if( this.pictureCodingType <= 0 || this.pictureCodingType >= PICTURE_TYPE_B ) {
 		return;
 	}
 	
 	// full_pel_forward, forward_f_code
-	if( this.pictureCodingType == PICTURE_TYPE_P || this.pictureCodingType == PICTURE_TYPE_B ) {
+	if( this.pictureCodingType == PICTURE_TYPE_P ) {
 		this.fullPelForward = this.buffer.getBits(1);
 		this.forwardFCode = this.buffer.getBits(3);
 		if( this.forwardFCode == 0 ) {
@@ -286,12 +286,6 @@ jsmpeg.prototype.decodePicture = function() {
 		}
 		this.forwardRSize = this.forwardFCode - 1;
 		this.forwardF = 1 << this.forwardRSize;
-	}
-	
-	// full_pel_backward, backward_f_code
-	if( this.pictureCodingType == PICTURE_TYPE_B ) {
-		// We can't deal with B frames
-		return;
 	}
 	
 	var code = 0;
@@ -334,6 +328,7 @@ jsmpeg.prototype.YCbCrToRGBA = function() {
 	var pCb = this.currentCb;
 	var pCr = this.currentCr;
 	var pRGBA = this.currentRGBA.data;
+	
 
 
 	// Chroma values are the same for each block of 4 pixels, so we proccess
