@@ -14,7 +14,6 @@
 // Inspired by "MPEG Decoder in Java ME" by Nokia:
 // http://www.developer.nokia.com/Community/Wiki/MPEG_decoder_in_Java_ME
 
-
 var requestAnimFrame = (function(){
 	return window.requestAnimationFrame ||
 		window.webkitRequestAnimationFrame ||
@@ -227,12 +226,23 @@ jsmpeg.prototype.decodeSequenceHeader = function() {
 	
 	// Allocated buffers and resize the canvas
 	this.currentY = new Uint8ClampedArray(this.codedSize);
+	this.currentY32 = new Uint32Array(this.currentY.buffer);
+
 	this.currentCr = new Uint8ClampedArray(this.codedSize >> 2);
+	this.currentCr32 = new Uint32Array(this.currentCr.buffer);
+
 	this.currentCb = new Uint8ClampedArray(this.codedSize >> 2);
+	this.currentCb32 = new Uint32Array(this.currentCb.buffer);
 	
+
 	this.forwardY = new Uint8ClampedArray(this.codedSize);
+	this.forwardY32 = new Uint32Array(this.forwardY.buffer);
+
 	this.forwardCr = new Uint8ClampedArray(this.codedSize >> 2);
+	this.forwardCr32 = new Uint32Array(this.forwardCr.buffer);
+
 	this.forwardCb = new Uint8ClampedArray(this.codedSize >> 2);
+	this.forwardCb32 = new Uint32Array(this.forwardCb.buffer);
 	
 	this.canvas.width = this.width;
 	this.canvas.height = this.height;
@@ -310,16 +320,25 @@ jsmpeg.prototype.decodePicture = function() {
 	if( this.pictureCodingType == PICTURE_TYPE_I || this.pictureCodingType == PICTURE_TYPE_P ) {
 		var 
 			tmpY = this.forwardY,
+			tmpY32 = this.forwardY32,
 			tmpCr = this.forwardCr,
-			tmpCb = this.forwardCb;
+			tmpCr32 = this.forwardCr32,
+			tmpCb = this.forwardCb,
+			tmpCb32 = this.forwardCb32;
 
 		this.forwardY = this.currentY;
+		this.forwardY32 = this.currentY32;
 		this.forwardCr = this.currentCr;
+		this.forwardCr32 = this.currentCr32;
 		this.forwardCb = this.currentCb;
+		this.forwardCb32 = this.currentCb32;
 
 		this.currentY = tmpY;
+		this.currentY32 = tmpY32;
 		this.currentCr = tmpCr;
+		this.currentCr32 = tmpCr32;
 		this.currentCb = tmpCb;
+		this.currentCb32 = tmpCb32;
 	}
 };
 
@@ -328,7 +347,7 @@ jsmpeg.prototype.YCbCrToRGBA = function() {
 	var pCb = this.currentCb;
 	var pCr = this.currentCr;
 	var pRGBA = this.currentRGBA.data;
-	
+
 
 
 	// Chroma values are the same for each block of 4 pixels, so we proccess
@@ -609,9 +628,9 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 		H, V, oddH, oddV,
 		src, dest, last;
 
-	var dY = this.currentY;
-	var dCb = this.currentCb;
-	var dCr = this.currentCr;
+	var dY = this.currentY32;
+	var dCb = this.currentCb32;
+	var dCr = this.currentCr32;
 
 	// Luminance
 	width = this.codedWidth;
@@ -623,47 +642,79 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 	oddV = (motionV & 1) == 1;
 	
 	src = ((this.mbRow << 4) + V) * width + (this.mbCol << 4) + H;
-	dest = (this.mbRow * width + this.mbCol) << 4;
-	last = dest + (width << 4);
+	dest = (this.mbRow * width + this.mbCol) << 2;
+	last = dest + (width << 2);
 
-
+	var y11, y21, y12, y22, y;
 	if( oddH ) {
 		if( oddV ) {
 			while( dest < last ) {
-				for( var x = 0; x < 16; x++ ) {
-					dY[dest] = (sY[src] + sY[src+1] + sY[src+width] + sY[src+width+1] + 2) >> 2;
-					dest++; src++;
+				y21 = sY[src]; y22 = sY[src+width]; src++;
+				for( var x = 0; x < 4; x++ ) {
+					y11 = y21; y12 = y22; y21 = sY[src]; y22 = sY[src+width]; src++;
+					y = (((y11 + y21 + y12 + y22 + 2) >> 2) & 0xff);
+
+					y11 = y21; y12 = y22; y21 = sY[src]; y22 = sY[src+width]; src++;
+					y |= (((y11 + y21 + y12 + y22 + 2) << 6) & 0xff00);
+					
+					y11 = y21; y12 = y22; y21 = sY[src]; y22 = sY[src+width]; src++;
+					y |= (((y11 + y21 + y12 + y22 + 2) << 14) & 0xff0000);
+
+					y11 = y21; y12 = y22; y21 = sY[src]; y22 = sY[src+width]; src++;
+					y |= (((y11 + y21 + y12 + y22 + 2) << 22) & 0xff000000);
+
+					dY[dest++] = y;
 				}
-				dest += scan; src += scan;
+				dest += scan >> 2; src += scan-1;
 			}
 		}
 		else {
 			while( dest < last ) {
-				for( var x = 0; x < 16; x++ ) {
-					dY[dest] = (sY[src] + sY[src+1] + 1) >> 1;
-					dest++; src++;
+				y21 = sY[src]; src++;
+				for( var x = 0; x < 4; x++ ) {
+					y11 = y21; y21 = sY[src]; src++;
+					y = (((y11 + y21 + 1) >> 1) & 0xff);
+					
+					y11 = y21; y21 = sY[src]; src++;
+					y |= (((y11 + y21 + 1) << 7) & 0xff00);
+					
+					y11 = y21; y21 = sY[src]; src++;
+					y |= (((y11 + y21 + 1) << 15) & 0xff0000);
+					
+					y11 = y21; y21 = sY[src]; src++;
+					y |= (((y11 + y21 + 1) << 23) & 0xff000000);
+
+					dY[dest++] = y;
 				}
-				dest += scan; src += scan;
+				dest += scan >> 2; src += scan-1;
 			}
 		}
 	}
 	else {
 		if( oddV ) {
 			while( dest < last ) {
-				for( var x = 0; x < 16; x++ ) {
-					dY[dest] = (sY[src] + sY[src+width] + 1) >> 1;
-					dest++; src++;
+				for( var x = 0; x < 4; x++ ) {
+					y = (((sY[src] + sY[src+width] + 1) >> 1) & 0xff); src++;
+					y |= (((sY[src] + sY[src+width] + 1) << 7) & 0xff00); src++;
+					y |= (((sY[src] + sY[src+width] + 1) << 15) & 0xff0000); src++;
+					y |= (((sY[src] + sY[src+width] + 1) << 23) & 0xff000000); src++;
+					
+					dY[dest++] = y;
 				}
-				dest += scan; src += scan;
+				dest += scan >> 2; src += scan;
 			}
 		}
 		else {
 			while( dest < last ) {
-				for( var x = 0; x < 16; x++ ) {
-					dY[dest] = sY[src];
-					dest++; src++;
+				for( var x = 0; x < 4; x++ ) {
+					y = sY[src]; src++;
+					y |= sY[src] << 8; src++;
+					y |= sY[src] << 16; src++;
+					y |= sY[src] << 24; src++;
+
+					dY[dest++] = y;
 				}
-				dest += scan; src += scan;
+				dest += scan >> 2; src += scan;
 			}
 		}
 	}
@@ -680,50 +731,122 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 	oddV = ((motionV/2) & 1) == 1;
 	
 	src = ((this.mbRow << 3) + V) * width + (this.mbCol << 3) + H;
-	dest = (this.mbRow * width + this.mbCol) << 3;
-	last = dest + (width << 3);
+	dest = (this.mbRow * width + this.mbCol) << 1;
+	last = dest + (width << 1);
 	
+	var cr11, cr21, cr12, cr22, cr;
+	var cb11, cb21, cb12, cb22, cb;
 	if( oddH ) {
 		if( oddV ) {
 			while( dest < last ) {
-				for( var x = 0; x < 8; x++ ) {
-					dCr[dest] = (sCr[src] + sCr[src+1] + sCr[src+width] + sCr[src+width+1] + 2) >> 2;
-					dCb[dest] = (sCb[src] + sCb[src+1] + sCb[src+width] + sCb[src+width+1] + 2) >> 2;
-					dest++; src++;
+				cr21 = sCr[src]; cr22 = sCr[src+width];
+				cb21 = sCb[src]; cb22 = sCb[src+width];
+				src++;
+				for( var x = 0; x < 2; x++ ) {
+					cr11 = cr21; cr12 = cr22; cr21 = sCr[src]; cr22 = sCr[src+width];
+					cb11 = cb21; cb12 = cb22; cb21 = sCb[src]; cb22 = sCb[src+width]; src++;
+					cr = (((cr11 + cr21 + cr12 + cr22 + 2) >> 2) & 0xff);
+					cb = (((cb11 + cb21 + cb12 + cb22 + 2) >> 2) & 0xff);
+
+					cr11 = cr21; cr12 = cr22; cr21 = sCr[src]; cr22 = sCr[src+width];
+					cb11 = cb21; cb12 = cb22; cb21 = sCb[src]; cb22 = sCb[src+width]; src++;
+					cr |= (((cr11 + cr21 + cr12 + cr22 + 2) << 6) & 0xff00);
+					cb |= (((cb11 + cb21 + cb12 + cb22 + 2) << 6) & 0xff00);
+
+					cr11 = cr21; cr12 = cr22; cr21 = sCr[src]; cr22 = sCr[src+width];
+					cb11 = cb21; cb12 = cb22; cb21 = sCb[src]; cb22 = sCb[src+width]; src++;
+					cr |= (((cr11 + cr21 + cr12 + cr22 + 2) << 14) & 0xff0000);
+					cb |= (((cb11 + cb21 + cb12 + cb22 + 2) << 14) & 0xff0000);
+
+					cr11 = cr21; cr12 = cr22; cr21 = sCr[src]; cr22 = sCr[src+width];
+					cb11 = cb21; cb12 = cb22; cb21 = sCb[src]; cb22 = sCb[src+width]; src++;
+					cr |= (((cr11 + cr21 + cr12 + cr22 + 2) << 22) & 0xff000000);
+					cb |= (((cb11 + cb21 + cb12 + cb22 + 2) << 22) & 0xff000000);
+
+					dCr[dest] = cr;
+					dCb[dest] = cb;
+					dest++;
 				}
-				dest += scan; src += scan;
+				dest += scan >> 2; src += scan-1;
 			}
 		}
 		else {
 			while( dest < last ) {
-				for( var x = 0; x < 8; x++ ) {
-					dCr[dest] = (sCr[src] + sCr[src+1] + 1) >> 1;
-					dCb[dest] = (sCb[src] + sCb[src+1] + 1) >> 1;
-					dest++; src++;
+				cr21 = sCr[src];
+				cb21 = sCb[src];
+				src++;
+				for( var x = 0; x < 2; x++ ) {
+					cr11 = cr21; cr21 = sCr[src];
+					cb11 = cb21; cb21 = sCb[src]; src++;
+					cr = (((cr11 + cr21 + 1) >> 1) & 0xff);
+					cb = (((cb11 + cb21 + 1) >> 1) & 0xff);
+
+					cr11 = cr21; cr21 = sCr[src];
+					cb11 = cb21; cb21 = sCb[src]; src++;
+					cr |= (((cr11 + cr21 + 1) << 7) & 0xff00);
+					cb |= (((cb11 + cb21 + 1) << 7) & 0xff00);
+
+					cr11 = cr21; cr21 = sCr[src];
+					cb11 = cb21; cb21 = sCb[src]; src++;
+					cr |= (((cr11 + cr21 + 1) << 15) & 0xff0000);
+					cb |= (((cb11 + cb21 + 1) << 15) & 0xff0000);
+
+					cr11 = cr21; cr21 = sCr[src];
+					cb11 = cb21; cb21 = sCb[src]; src++;
+					cr |= (((cr11 + cr21 + 1) << 23) & 0xff000000);
+					cb |= (((cb11 + cb21 + 1) << 23) & 0xff000000);
+
+					dCr[dest] = cr;
+					dCb[dest] = cb;
+					dest++;
 				}
-				dest += scan; src += scan;
+				dest += scan >> 2; src += scan-1;
 			}
 		}
 	}
 	else {
 		if( oddV ) {
 			while( dest < last ) {
-				for( var x = 0; x < 8; x++ ) {
-					dCr[dest] = (sCr[src] + sCr[src+width] + 1) >> 1;
-					dCb[dest] = (sCb[src] + sCb[src+width] + 1) >> 1;
-					dest++; src++;
+				for( var x = 0; x < 2; x++ ) {
+					cr = (((sCr[src] + sCr[src+width] + 1) >> 1) & 0xff);
+					cb = (((sCb[src] + sCb[src+width] + 1) >> 1) & 0xff); src++;
+
+					cr |= (((sCr[src] + sCr[src+width] + 1) << 7) & 0xff00);
+					cb |= (((sCb[src] + sCb[src+width] + 1) << 7) & 0xff00); src++;
+
+					cr |= (((sCr[src] + sCr[src+width] + 1) << 15) & 0xff0000);
+					cb |= (((sCb[src] + sCb[src+width] + 1) << 15) & 0xff0000); src++;
+
+					cr |= (((sCr[src] + sCr[src+width] + 1) << 23) & 0xff000000);
+					cb |= (((sCb[src] + sCb[src+width] + 1) << 23) & 0xff000000); src++;
+					
+					dCr[dest] = cr;
+					dCb[dest] = cb;
+					dest++;
 				}
-				dest += scan; src += scan;
+				dest += scan >> 2; src += scan;
 			}
 		}
 		else {
 			while( dest < last ) {
-				for( var x = 0; x < 8; x++ ) {
-					dCr[dest] = sCr[src];
-					dCb[dest] = sCb[src];
-					dest++; src++;
+				for( var x = 0; x < 2; x++ ) {
+					cr = sCr[src];
+					cb = sCb[src]; src++;
+
+					cr |= sCr[src] << 8;
+					cb |= sCb[src] << 8; src++;
+
+					cr |= sCr[src] << 16;
+					cb |= sCb[src] << 16; src++;
+
+					cr |= sCr[src] << 24;
+					cb |= sCb[src] << 24; src++;
+
+					dCr[dest] = cr;
+					dCb[dest] = cb;
+					dest++;
 				}
-				dest += scan; src += scan;
+				dest += scan >> 2; src += scan;
 			}
 		}
 	}
@@ -892,7 +1015,6 @@ jsmpeg.prototype.decodeBlock = function(block) {
 	
 	var blockData = this.blockData;
 	if( this.macroblockIntra ) {
-		var mult = 0;
 		// Overwrite (no prediction)
 		for( var i = 0; i < 8; i++ ) {
 			for( var j = 0; j < 8; j++ ) {
