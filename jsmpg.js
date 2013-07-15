@@ -339,7 +339,7 @@ jsmpeg.prototype.decodePicture = function() {
 	this.buffer.rewind(32);
 	
 	
-	this.YCrCbToRGBA();
+	this.YCbCrToRGBA();
 	this.canvasContext.putImageData(this.currentRGBA, 0, 0);
 	
 	// If this is a reference picutre then rotate the prediction pointers
@@ -353,10 +353,10 @@ jsmpeg.prototype.decodePicture = function() {
 	}
 };
 
-jsmpeg.prototype.YCrCbToRGBA = function() {	
+jsmpeg.prototype.YCbCrToRGBA = function() {	
 	var pY = this.currentY;
-	var pCr = this.currentCr;
 	var pCb = this.currentCb;
+	var pCr = this.currentCr;
 	var pRGBA = this.currentRGBA.data;
 
 
