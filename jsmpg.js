@@ -234,10 +234,6 @@ jsmpeg.prototype.decodeSequenceHeader = function() {
 	this.forwardCr = new Uint8ClampedArray(this.codedSize >> 2);
 	this.forwardCb = new Uint8ClampedArray(this.codedSize >> 2);
 	
-	this.backwardY = new Uint8ClampedArray(this.codedSize);
-	this.backwardCr = new Uint8ClampedArray(this.codedSize >> 2);
-	this.backwardCb = new Uint8ClampedArray(this.codedSize >> 2);
-	
 	this.canvas.width = this.width;
 	this.canvas.height = this.height;
 	
@@ -264,19 +260,10 @@ jsmpeg.prototype.forwardY = null;
 jsmpeg.prototype.forwardCr = null;
 jsmpeg.prototype.forwardCb = null;
 
-jsmpeg.prototype.backwardY = null;
-jsmpeg.prototype.backwardCr = null;
-jsmpeg.prototype.backwardCb = null;
-
 jsmpeg.prototype.fullPelForward = false;
 jsmpeg.prototype.forwardFCode = 0;
 jsmpeg.prototype.forwardRSize = 0;
 jsmpeg.prototype.forwardF = 0;
-
-jsmpeg.prototype.fullPelBackward = false;
-jsmpeg.prototype.backwardFCode = 0;
-jsmpeg.prototype.backwardRSize = 0;
-jsmpeg.prototype.backwardF = 0;
 
 
 jsmpeg.prototype.decodePicture = function() {	
@@ -303,25 +290,8 @@ jsmpeg.prototype.decodePicture = function() {
 	
 	// full_pel_backward, backward_f_code
 	if( this.pictureCodingType == PICTURE_TYPE_B ) {
-		this.fullPelBackward = this.buffer.getBits(1);
-		this.backwardFCode = this.buffer.getBits(3);
-		if( this.backwardFCode == 0 ) {
-			// Ignore picture with zero backward_f_code
-			return;
-		}
-		this.backwardRSize = this.backwardFCode - 1;
-		this.backwardF = 1 << this.backwardRSize;
-	}
-	
-	var 
-		tmpY = this.forwardY,
-		tmpCr = this.forwardCr,
-		tmpCb = this.forwardCb;
-
-	if( this.pictureCodingType == PICTURE_TYPE_I || this.pictureCodingType == PICTURE_TYPE_P ) {
-		this.forwardY = this.backwardY;
-		this.forwardCr = this.backwardCr;
-		this.forwardCb = this.backwardCb;
+		// We can't deal with B frames
+		return;
 	}
 	
 	var code = 0;
@@ -344,9 +314,15 @@ jsmpeg.prototype.decodePicture = function() {
 	
 	// If this is a reference picutre then rotate the prediction pointers
 	if( this.pictureCodingType == PICTURE_TYPE_I || this.pictureCodingType == PICTURE_TYPE_P ) {
-		this.backwardY = this.currentY;
-		this.backwardCr = this.currentCr;
-		this.backwardCb = this.currentCb;
+		var 
+			tmpY = this.forwardY,
+			tmpCr = this.forwardCr,
+			tmpCb = this.forwardCb;
+
+		this.forwardY = this.currentY;
+		this.forwardCr = this.currentCr;
+		this.forwardCb = this.currentCb;
+
 		this.currentY = tmpY;
 		this.currentCr = tmpCr;
 		this.currentCb = tmpCb;
@@ -440,8 +416,6 @@ jsmpeg.prototype.decodeSlice = function(slice) {
 	// Reset motion vectors and DC predictors
 	this.motionFwH = this.motionFwHPrev = 0;
 	this.motionFwV = this.motionFwVPrev = 0;
-	this.motionBwH = this.motionBwHPrev = 0;
-	this.motionBwV = this.motionBwVPrev = 0;
 	this.dcPredictorY  = 128;
 	this.dcPredictorCr = 128;
 	this.dcPredictorCb = 128;
@@ -470,16 +444,11 @@ jsmpeg.prototype.mbCol = 0;
 jsmpeg.prototype.macroblockType = 0;
 jsmpeg.prototype.macroblockIntra = false;
 jsmpeg.prototype.macroblockMotFw = false;
-jsmpeg.prototype.macroblockMotBw = false;
 	
 jsmpeg.prototype.motionFwH = 0;
 jsmpeg.prototype.motionFwV = 0;
-jsmpeg.prototype.motionBwH = 0;
-jsmpeg.prototype.motionBwV = 0;
 jsmpeg.prototype.motionFwHPrev = 0;
 jsmpeg.prototype.motionFwVPrev = 0;
-jsmpeg.prototype.motionBwHPrev = 0;
-jsmpeg.prototype.motionBwVPrev = 0;
 
 jsmpeg.prototype.decodeMacroblock = function() {
 	// Decode macroblock_address_increment
@@ -528,7 +497,7 @@ jsmpeg.prototype.decodeMacroblock = function() {
 			this.macroblockAddress++;
 			this.mbRow = (this.macroblockAddress / this.mbWidth)|0;
 			this.mbCol = this.macroblockAddress % this.mbWidth;
-			this.predictMacroblock();
+			this.copyMacroblock(this.motionFwH, this.motionFwV, this.forwardY, this.forwardCr, this.forwardCb);
 			increment--;
 		}
 		this.macroblockAddress++;
@@ -540,7 +509,6 @@ jsmpeg.prototype.decodeMacroblock = function() {
 	this.macroblockType = this.readCode(MACROBLOCK_TYPE_TABLES[this.pictureCodingType]);
 	this.macroblockIntra = (this.macroblockType & 0x01);
 	this.macroblockMotFw = (this.macroblockType & 0x08);
-	this.macroblockMotBw = (this.macroblockType & 0x04);
 
 	// Quantizer scale
 	if( (this.macroblockType & 0x10) != 0 ) {
@@ -551,8 +519,6 @@ jsmpeg.prototype.decodeMacroblock = function() {
 		// Intra-coded macroblocks reset motion vectors
 		this.motionFwH = this.motionFwHPrev = 0;
 		this.motionFwV = this.motionFwVPrev = 0;
-		this.motionBwH = this.motionBwHPrev = 0;
-		this.motionBwV = this.motionBwVPrev = 0;
 	}
 	else {
 		// Non-intra macroblocks reset DC predictors
@@ -561,7 +527,7 @@ jsmpeg.prototype.decodeMacroblock = function() {
 		this.dcPredictorCb = 128;
 		
 		this.decodeMotionVectors();
-		this.predictMacroblock();
+		this.copyMacroblock(this.motionFwH, this.motionFwV, this.forwardY, this.forwardCr, this.forwardCb);
 	}
 
 	// Decode blocks
@@ -640,67 +606,6 @@ jsmpeg.prototype.decodeMotionVectors = function() {
 		this.motionFwH = this.motionFwHPrev = 0;
 		this.motionFwV = this.motionFwVPrev = 0;
 	}
-	
-	
-	// Backward
-	if( this.macroblockMotBw ) {
-		// Horizontal backward
-		code = this.readCode(MOTION);
-		if( (code != 0) && (this.backwardF != 1) ) {
-			r = this.buffer.getBits(this.backwardRSize);
-			d = ((Math.abs(code) - 1) << this.backwardRSize) + r + 1;
-			if( code < 0 ) {
-				d = -d;
-			}
-		}
-		else {
-			d = code;
-		}
-		
-		this.motionBwHPrev += d;
-		if( this.motionBwHPrev > (this.backwardF << 4) - 1 ) {
-			this.motionBwHPrev -= this.backwardF << 5;
-		}
-		else if( this.motionBwHPrev < ((-this.backwardF) << 4) ) {
-			this.motionBwHPrev += this.backwardF << 5;
-		}
-		
-		this.motionBwH = this.motionBwHPrev;
-		if( this.fullPelForward ) {
-			this.motionBwH <<= 1;
-		}
-		
-		// Vertical backward
-		code = this.readCode(MOTION);
-		if ((code != 0) && (this.backwardF != 1)) {
-			r = this.buffer.getBits(this.backwardRSize);
-			d = ((Math.abs(code) - 1) << this.backwardRSize) + r + 1;
-			if( code < 0 ) {
-				d = -d;
-			}
-		}
-		else {
-			d = code;
-		}
-		
-		this.motionBwVPrev += d;
-		if( this.motionBwVPrev > (this.backwardF << 4) - 1 ) {
-			this.motionBwVPrev -= this.backwardF << 5;
-		}
-		else if( this.motionBwVPrev < ((-this.backwardF) << 4)) {
-			this.motionBwVPrev += this.backwardF << 5;
-		}
-		
-		this.motionBwV = this.motionBwVPrev;
-		if( this.fullPelForward ) {
-			this.motionBwV <<= 1;
-		}
-		
-		this.motionBwV= this.motionBwVPrev;
-		if( this.fullPelBackward ) {
-			this.motionBwVPrev <<= 1;
-		}
-	}
 };
 
 jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
@@ -708,7 +613,7 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 		width, scan, 
 		H, V, oddH, oddV,
 		src, dest, last;
-	
+
 	var dY = this.currentY;
 	var dCb = this.currentCb;
 	var dCr = this.currentCr;
@@ -828,160 +733,6 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 		}
 	}
 };
-
-
-jsmpeg.prototype.interpolateMacroblock = function() {
-	var 
-		width, scan, 
-		H, V, oddH, oddV,
-		src, dest, last;
-	
-	// Luminance
-	width = this.codedWidth;
-	scan = width - 16;
-	
-	H = this.motionBwH >> 1;
-	V = this.motionBwV >> 1;
-	oddH = (this.motionBwH & 1) == 1;
-	oddV = (this.motionBwV & 1) == 1;
-	
-	src  = ((this.mbRow << 4) + V) * width + (this.mbCol << 4) + H;
-	dest = (this.mbRow * width + this.mbCol) << 4;
-	last = dest + (width << 4);
-	
-	if( oddH ) {
-		if( oddV ) {
-			while( dest < last ) {
-				for( var x = 0; x < 16; x++ ) {
-					this.currentY[dest] += ((this.backwardY[src] + this.backwardY[src+1] +
-						this.backwardY[src+width] + this.backwardY[src+width+1] + 2) >> 2) + 1;
-					this.currentY[dest] >>= 1;
-					dest++; src++;
-				}
-				dest += scan; src += scan;
-			}
-		}
-		else {
-			while( dest < last ) {
-				for( var x = 0; x < 16; x++ ) {
-					this.currentY[dest] += ((this.backwardY[src] + this.backwardY[src+1] + 1) >> 1) + 1;
-					this.currentY[dest] >>= 1;
-					dest++; src++;
-				}
-				dest += scan; src += scan;
-			}
-		}
-	}
-	else {
-		if( oddV ) {
-			while( dest < last ) {
-				for( var x = 0; x < 16; x++ ) {
-					this.currentY[dest] += ((this.backwardY[src] + this.backwardY[src+width] + 1) >> 1) + 1;
-					this.currentY[dest] >>= 1;
-					dest++; src++;
-				}
-				dest += scan; src += scan;
-			}
-		}
-		else {
-			while( dest < last ) {
-				for( var x = 0; x < 16; x++ ) {
-					this.currentY[dest] += this.backwardY[src] + 1;
-					this.currentY[dest] >>= 1;
-					dest++; src++;
-				}
-				dest += scan; src += scan;
-			}
-		}
-	}
-	
-	// Chrominance
-	width = this.halfWidth;
-	scan = width - 8;
-	
-	H = (this.motionBwH/2) >> 1;
-	V = (this.motionBwV/2) >> 1;
-	oddH = ((this.motionBwH/2) & 1) == 1;
-	oddV = ((this.motionBwV/2) & 1) == 1;
-	
-	src = ((this.mbRow << 3) + V) * width + (this.mbCol << 3) + H;
-	dest = (this.mbRow * width + this.mbCol) << 3;
-	last = dest + (width << 3);
-	
-	if( oddH ) {
-		if( oddV ) {
-			while( dest < last ) {
-				for( var x = 0; x < 8; x++ ) {
-					this.currentCr[dest] += ((this.backwardCr[src] + this.backwardCr[src+1] +
-						this.backwardCr[src+width] + this.backwardCr[src+width+1] + 2) >> 2) + 1;
-					this.currentCb[dest] += ((this.backwardCb[src] + this.backwardCb[src+1] +
-						this.backwardCb[src+width] + this.backwardCb[src+width+1] + 2) >> 2) + 1;
-					this.currentCr[dest] >>= 1;
-					this.currentCb[dest] >>= 1;
-					dest++; src++;
-				}
-				dest += scan; src += scan;
-			}
-		}
-		else {
-			while( dest < last ) {
-				for( var x = 0; x < 8; x++ ) {
-					this.currentCr[dest] += ((this.backwardCr[src] + this.backwardCr[src+1] + 1) >> 1) + 1;
-					this.currentCb[dest] += ((this.backwardCb[src] + this.backwardCb[src+1] + 1) >> 1) + 1;
-					this.currentCr[dest] >>= 1;
-					this.currentCb[dest] >>= 1;
-					dest++; src++;
-				}
-				dest += scan; src += scan;
-			}
-		}
-	}
-	else {
-		if( oddV ) {
-			while( dest < last ) {
-				for( var x = 0; x < 8; x++ ) {
-					this.currentCr[dest] += ((this.backwardCr[src] + this.backwardCr[src+width] + 1) >> 1) + 1;
-					this.currentCb[dest] += ((this.backwardCb[src] + this.backwardCb[src+width] + 1) >> 1) + 1;
-					this.currentCr[dest] >>= 1;
-					this.currentCb[dest] >>= 1;
-					dest++; src++;
-				}
-				dest += scan; src += scan;
-			}
-		}
-		else {
-			while( dest < last ) {
-				for( var x = 0; x < 8; x++ ) {
-					this.currentCr[dest] += this.backwardCr[src] + 1;
-					this.currentCb[dest] += this.backwardCb[src] + 1;
-					this.currentCr[dest] >>= 1;
-					this.currentCb[dest] >>= 1;
-					dest++; src++;
-				}
-				dest += scan; src += scan;
-			}
-		}
-	}
-};
-
-jsmpeg.prototype.predictMacroblock = function() {
-	if( this.pictureCodingType == PICTURE_TYPE_B ) {
-		if( this.macroblockMotFw ) {
-			this.copyMacroblock(this.motionFwH, this.motionFwV, this.forwardY, this.forwardCr, this.forwardCb);
-			if( this.macroblockMotBw ) {
-				this.interpolateMacroblock();
-			}
-		}
-		else {
-			this.copyMacroblock(this.motionBwH, this.motionBwV, this.backwardY, this.backwardCr, this.backwardCb);
-		}
-	}
-	else {
-		this.copyMacroblock(this.motionFwH, this.motionFwV, this.forwardY, this.forwardCr, this.forwardCb);
-	}
-	// Ignore error on motion vectors pointing outside the bitmap
-};
-
 
 
 // ----------------------------------------------------------------------------
