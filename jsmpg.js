@@ -241,8 +241,8 @@ jsmpeg.prototype.decodeSequenceHeader = function() {
 	this.canvas.width = this.width;
 	this.canvas.height = this.height;
 	
-	this.currentRGB = this.canvasContext.getImageData(0, 0, this.width, this.height);
-	this.fillArray(this.currentRGB.data, 255);
+	this.currentRGBA = this.canvasContext.getImageData(0, 0, this.width, this.height);
+	this.fillArray(this.currentRGBA.data, 255);
 };
 
 
@@ -255,7 +255,7 @@ jsmpeg.prototype.currentY = null;
 jsmpeg.prototype.currentCr = null;
 jsmpeg.prototype.currentCb = null;
 
-jsmpeg.prototype.currentRGB = null;
+jsmpeg.prototype.currentRGBA = null;
 
 jsmpeg.prototype.pictureCodingType = 0;
 
@@ -339,8 +339,8 @@ jsmpeg.prototype.decodePicture = function() {
 	this.buffer.rewind(32);
 	
 	
-	this.YCrCbToRGB();
-	this.canvasContext.putImageData(this.currentRGB, 0, 0);
+	this.YCrCbToRGBA();
+	this.canvasContext.putImageData(this.currentRGBA, 0, 0);
 	
 	// If this is a reference picutre then rotate the prediction pointers
 	if( this.pictureCodingType == PICTURE_TYPE_I || this.pictureCodingType == PICTURE_TYPE_P ) {
@@ -353,61 +353,74 @@ jsmpeg.prototype.decodePicture = function() {
 	}
 };
 
-jsmpeg.prototype.YCrCbToRGB = function() {
-	// We process two lines at a time
-	var size = this.codedSize >> 2;
-
-	var index1 = 0;
-	var rgbIndex1 = 0;
-	var index2 = this.codedWidth;
-	var rgbIndex2 = this.width * 4;
-	
+jsmpeg.prototype.YCrCbToRGBA = function() {	
 	var pY = this.currentY;
 	var pCr = this.currentCr;
 	var pCb = this.currentCb;
-	var pRGB = this.currentRGB.data;
+	var pRGBA = this.currentRGBA.data;
+
+
+	// Chroma values are the same for each block of 4 pixels, so we proccess
+	// 2 lines at a time, 2 neighboring pixels each.
+
+	var yIndex1 = 0;
+	var yIndex2 = this.codedWidth;
+	var yNext2Lines = this.codedWidth + (this.codedWidth - this.width);
+
+	var cIndex = 0;
+	var cNextLine = this.halfWidth - (this.width >> 1);
+
+	var rgbaIndex1 = 0;
+	var rgbaIndex2 = this.width * 4;
+	var rgbaNext2Lines = this.width * 4;
 	
-	var wrap = this.codedWidth + (this.codedWidth - this.width);
-	var chromaWrap = this.halfWidth - (this.width >> 1);
-	var rgbWrap = this.width * 4;
-	
-	var y, cb, cr;
-	for( var i = 0; i < size; i++ ) {
-		cb = pCb[i] - 128;
-		cr = pCr[i] - 128;
-		
-		y = pY[index1++];
-		pRGB[rgbIndex1] = y + 1.4 * cr;
-		pRGB[rgbIndex1+1] = y + -0.343 * cb - 0.711 * cr;
-		pRGB[rgbIndex1+2] = y + 1.765 * cb;
-		rgbIndex1+=4;
-		
-		y = pY[index1++];
-		pRGB[rgbIndex1] = y + 1.4 * cr;
-		pRGB[rgbIndex1+1] = y + -0.343 * cb - 0.711 * cr;
-		pRGB[rgbIndex1+2] = y + 1.765 * cb;
-		rgbIndex1+=4;
-		
-		y = pY[index2++];
-		pRGB[rgbIndex2] = y + 1.4 * cr;
-		pRGB[rgbIndex2+1] = y + -0.343 * cb - 0.711 * cr;
-		pRGB[rgbIndex2+2] = y + 1.765 * cb;
-		rgbIndex2+=4;
-		
-		y = pY[index2++];
-		pRGB[rgbIndex2] = y + 1.4 * cr;
-		pRGB[rgbIndex2+1] = y + -0.343 * cb - 0.711 * cr;
-		pRGB[rgbIndex2+2] = y + 1.765 * cb;
-		rgbIndex2+=4;
-		
-		// Next two lines
-		if( rgbIndex1 % rgbWrap == 0 ) {
-			i += chromaWrap;
-			index1 += wrap;
-			index2 += wrap;
-			rgbIndex1 += rgbWrap;
-			rgbIndex2 += rgbWrap;
+	var cols = this.width >> 1;
+	var rows = this.height >> 1;
+
+	var y, cb, cr, r, g, b;
+
+	for( var row = 0; row < rows; row++ ) {
+		for( var col = 0; col < cols; col++ ) {
+			cb = pCb[cIndex];
+			cr = pCr[cIndex];
+			cIndex++;
+			
+			r = (cr + ((cr * 103) >> 8)) - 179;
+			g = ((cb * 88) >> 8) - 44 + ((cr * 183) >> 8) - 91;
+			b = (cb + ((cb * 198) >> 8)) - 227;
+			
+			// Line 1
+			y = pY[yIndex1++];
+			pRGBA[rgbaIndex1] = y + r;
+			pRGBA[rgbaIndex1+1] = y - g;
+			pRGBA[rgbaIndex1+2] = y + b;
+			rgbaIndex1 += 4;
+			
+			y = pY[yIndex1++];
+			pRGBA[rgbaIndex1] = y + r;
+			pRGBA[rgbaIndex1+1] = y - g;
+			pRGBA[rgbaIndex1+2] = y + b;
+			rgbaIndex1 += 4;
+			
+			// Line 2
+			y = pY[yIndex2++];
+			pRGBA[rgbaIndex2] = y + r;
+			pRGBA[rgbaIndex2+1] = y - g;
+			pRGBA[rgbaIndex2+2] = y + b;
+			rgbaIndex2 += 4;
+			
+			y = pY[yIndex2++];
+			pRGBA[rgbaIndex2] = y + r;
+			pRGBA[rgbaIndex2+1] = y - g;
+			pRGBA[rgbaIndex2+2] = y + b;
+			rgbaIndex2 += 4;
 		}
+		
+		yIndex1 += yNext2Lines;
+		yIndex2 += yNext2Lines;
+		rgbaIndex1 += rgbaNext2Lines;
+		rgbaIndex2 += rgbaNext2Lines;
+		cIndex += cNextLine;
 	}
 };
 
