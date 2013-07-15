@@ -226,17 +226,17 @@ jsmpeg.prototype.decodeSequenceHeader = function() {
 	this.sequenceStarted = true;
 	
 	// Allocated buffers and resize the canvas
-	this.currentY = new Int16Array(this.codedSize);
-	this.currentCr = new Int16Array(this.codedSize >> 2);
-	this.currentCb = new Int16Array(this.codedSize >> 2);
+	this.currentY = new Uint8ClampedArray(this.codedSize);
+	this.currentCr = new Uint8ClampedArray(this.codedSize >> 2);
+	this.currentCb = new Uint8ClampedArray(this.codedSize >> 2);
 	
-	this.forwardY = new Int16Array(this.codedSize);
-	this.forwardCr = new Int16Array(this.codedSize >> 2);
-	this.forwardCb = new Int16Array(this.codedSize >> 2);
+	this.forwardY = new Uint8ClampedArray(this.codedSize);
+	this.forwardCr = new Uint8ClampedArray(this.codedSize >> 2);
+	this.forwardCb = new Uint8ClampedArray(this.codedSize >> 2);
 	
-	this.backwardY = new Int16Array(this.codedSize);
-	this.backwardCr = new Int16Array(this.codedSize >> 2);
-	this.backwardCb = new Int16Array(this.codedSize >> 2);
+	this.backwardY = new Uint8ClampedArray(this.codedSize);
+	this.backwardCr = new Uint8ClampedArray(this.codedSize >> 2);
+	this.backwardCb = new Uint8ClampedArray(this.codedSize >> 2);
 	
 	this.canvas.width = this.width;
 	this.canvas.height = this.height;
