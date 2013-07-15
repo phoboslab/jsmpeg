@@ -703,11 +703,15 @@ jsmpeg.prototype.decodeMotionVectors = function() {
 	}
 };
 
-jsmpeg.prototype.copyMacroblock = function(motionH, motionV, Y, Cr, Cb ) {
+jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 	var 
 		width, scan, 
 		H, V, oddH, oddV,
 		src, dest, last;
+	
+	var dY = this.currentY;
+	var dCb = this.currentCb;
+	var dCr = this.currentCr;
 
 	// Luminance
 	width = this.codedWidth;
@@ -721,12 +725,13 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, Y, Cr, Cb ) {
 	src = ((this.mbRow << 4) + V) * width + (this.mbCol << 4) + H;
 	dest = (this.mbRow * width + this.mbCol) << 4;
 	last = dest + (width << 4);
-	
+
+
 	if( oddH ) {
 		if( oddV ) {
 			while( dest < last ) {
 				for( var x = 0; x < 16; x++ ) {
-					this.currentY[dest] = (Y[src] + Y[src+1] + Y[src+width] + Y[src+width+1] + 2) >> 2;
+					dY[dest] = (sY[src] + sY[src+1] + sY[src+width] + sY[src+width+1] + 2) >> 2;
 					dest++; src++;
 				}
 				dest += scan; src += scan;
@@ -735,7 +740,7 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, Y, Cr, Cb ) {
 		else {
 			while( dest < last ) {
 				for( var x = 0; x < 16; x++ ) {
-					this.currentY[dest] = (Y[src] + Y[src+1] + 1) >> 1;
+					dY[dest] = (sY[src] + sY[src+1] + 1) >> 1;
 					dest++; src++;
 				}
 				dest += scan; src += scan;
@@ -746,7 +751,7 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, Y, Cr, Cb ) {
 		if( oddV ) {
 			while( dest < last ) {
 				for( var x = 0; x < 16; x++ ) {
-					this.currentY[dest] = (Y[src] + Y[src+width] + 1) >> 1;
+					dY[dest] = (sY[src] + sY[src+width] + 1) >> 1;
 					dest++; src++;
 				}
 				dest += scan; src += scan;
@@ -755,7 +760,7 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, Y, Cr, Cb ) {
 		else {
 			while( dest < last ) {
 				for( var x = 0; x < 16; x++ ) {
-					this.currentY[dest] = Y[src];
+					dY[dest] = sY[src];
 					dest++; src++;
 				}
 				dest += scan; src += scan;
@@ -782,8 +787,8 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, Y, Cr, Cb ) {
 		if( oddV ) {
 			while( dest < last ) {
 				for( var x = 0; x < 8; x++ ) {
-					this.currentCr[dest] = (Cr[src] + Cr[src+1] + Cr[src+width] + Cr[src+width+1] + 2) >> 2;
-					this.currentCb[dest] = (Cb[src] + Cb[src+1] + Cb[src+width] + Cb[src+width+1] + 2) >> 2;
+					dCr[dest] = (sCr[src] + sCr[src+1] + sCr[src+width] + sCr[src+width+1] + 2) >> 2;
+					dCb[dest] = (sCb[src] + sCb[src+1] + sCb[src+width] + sCb[src+width+1] + 2) >> 2;
 					dest++; src++;
 				}
 				dest += scan; src += scan;
@@ -792,8 +797,8 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, Y, Cr, Cb ) {
 		else {
 			while( dest < last ) {
 				for( var x = 0; x < 8; x++ ) {
-					this.currentCr[dest] = (Cr[src] + Cr[src+1] + 1) >> 1;
-					this.currentCb[dest] = (Cb[src] + Cb[src+1] + 1) >> 1;
+					dCr[dest] = (sCr[src] + sCr[src+1] + 1) >> 1;
+					dCb[dest] = (sCb[src] + sCb[src+1] + 1) >> 1;
 					dest++; src++;
 				}
 				dest += scan; src += scan;
@@ -804,8 +809,8 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, Y, Cr, Cb ) {
 		if( oddV ) {
 			while( dest < last ) {
 				for( var x = 0; x < 8; x++ ) {
-					this.currentCr[dest] = (Cr[src] + Cr[src+width] + 1) >> 1;
-					this.currentCb[dest] = (Cb[src] + Cb[src+width] + 1) >> 1;
+					dCr[dest] = (sCr[src] + sCr[src+width] + 1) >> 1;
+					dCb[dest] = (sCb[src] + sCb[src+width] + 1) >> 1;
 					dest++; src++;
 				}
 				dest += scan; src += scan;
@@ -814,8 +819,8 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, Y, Cr, Cb ) {
 		else {
 			while( dest < last ) {
 				for( var x = 0; x < 8; x++ ) {
-					this.currentCr[dest] = Cr[src];
-					this.currentCb[dest] = Cb[src];
+					dCr[dest] = sCr[src];
+					dCb[dest] = sCb[src];
 					dest++; src++;
 				}
 				dest += scan; src += scan;
