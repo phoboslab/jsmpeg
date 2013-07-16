@@ -541,8 +541,8 @@ jsmpeg.prototype.decodePicture = function(skipOutput) {
 	
 	
 	if( skipOutput != DECODE_SKIP_OUTPUT ) {
-		this.YCrCbToRGB();
-		this.canvasContext.putImageData(this.currentRGB, 0, 0);
+		this.YCbCrToRGBA();
+		this.canvasContext.putImageData(this.currentRGBA, 0, 0);
 	}
 	
 	// If this is a reference picutre then rotate the prediction pointers
