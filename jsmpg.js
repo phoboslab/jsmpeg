@@ -30,6 +30,8 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 	this.autoplay = !!opts.autoplay;
 	this.loop = !!opts.loop;
 	this.externalLoadCallback = opts.onload || null;
+	this.bwFilter = opts.bwFilter || false;
+	this.externalDecodeCallback = opts.ondecodeframe || null;
 
 	this.customIntraQuantMatrix = new Uint8Array(64);
 	this.customNonIntraQuantMatrix = new Uint8Array(64);
@@ -53,6 +55,8 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 
 jsmpeg.prototype.waitForIntraFrame = true;
 jsmpeg.prototype.socketBufferSize = 512 * 1024; // 512kb each
+jsmpeg.prototype.onlostconnection = null;
+
 jsmpeg.prototype.initSocketClient = function( client ) {
 	this.buffer = new BitReader(new ArrayBuffer(this.socketBufferSize));
 
@@ -119,9 +123,8 @@ jsmpeg.prototype.receiveSocketMessage = function( event ) {
 
 	// If we are still here, we found the next picture start code!
 
-
-
-	// Skip picture decoding until we find the first intra frame
+	
+	// Skip picture decoding until we find the first intra frame?
 	if( this.waitForIntraFrame ) {
 		next.advance(10); // skip temporalReference
 		if( next.getBits(3) == PICTURE_TYPE_I ) {
@@ -138,7 +141,7 @@ jsmpeg.prototype.receiveSocketMessage = function( event ) {
 	}
 
 	
-	// Copy the picture chunk over to 'buffer' and schedule decoding.
+	// Copy the picture chunk over to 'this.buffer' and schedule decoding.
 	var chunkEnd = ((next.index) >> 3);
 
 	if( chunkEnd > next.chunkBegin ) {
@@ -181,9 +184,12 @@ jsmpeg.prototype.didStartRecordingCallback = null;
 
 jsmpeg.prototype.recordBuffers = [];
 
+jsmpeg.prototype.canRecord = function(){
+	return (this.client && this.client.readyState == this.client.OPEN);
+};
+
 jsmpeg.prototype.startRecording = function(callback) {
-	if( !this.client ) {
-		throw("Can't record when loading from file.");
+	if( !this.canRecord() ) {
 		return;
 	}
 	
@@ -192,6 +198,9 @@ jsmpeg.prototype.startRecording = function(callback) {
 	this.isRecording = true;
 	this.recorderWaitForIntraFrame = true;
 	this.didStartRecordingCallback = callback || null;
+
+	this.recordedFrames = 0;
+	this.recordedSize = 0;
 	
 	// Fudge a simple Sequence Header for the MPEG file
 	
@@ -300,6 +309,7 @@ jsmpeg.prototype.loadCallback = function(file) {
 
 jsmpeg.prototype.play = function(file) {
 	if( this.playing ) { return; }
+	this.targetTime = Date.now();
 	this.playing = true;
 	this.scheduleNextFrame();
 };
@@ -360,6 +370,7 @@ jsmpeg.prototype.firstSequenceHeader = 0;
 jsmpeg.prototype.targetTime = 0;
 
 jsmpeg.prototype.nextFrame = function() {
+	if( !this.buffer ) { return; }
 	while(true) {
 		var code = this.buffer.findNextMPEGStartCode();
 		
@@ -389,9 +400,9 @@ jsmpeg.prototype.nextFrame = function() {
 };
 
 jsmpeg.prototype.scheduleNextFrame = function() {
-	var wait = (1000/this.pictureRate) - this.lateTime;
+	this.lateTime = Date.now() - this.targetTime;
+	var wait = Math.max(0, (1000/this.pictureRate) - this.lateTime);
 	this.targetTime = Date.now() + wait;
-
 	if( wait < 18 ) {
 		this.scheduleAnimation();
 	}
@@ -472,6 +483,7 @@ jsmpeg.prototype.initBuffers = function() {
 	this.canvas.height = this.height;
 	
 	this.currentRGBA = this.canvasContext.getImageData(0, 0, this.width, this.height);
+	this.currentRGBA32 = new Uint32Array( this.currentRGBA.data.buffer );
 	this.fillArray(this.currentRGBA.data, 255);
 };
 
@@ -541,8 +553,17 @@ jsmpeg.prototype.decodePicture = function(skipOutput) {
 	
 	
 	if( skipOutput != DECODE_SKIP_OUTPUT ) {
-		this.YCbCrToRGBA();
+		if( this.bwFilter ) {
+			this.YToRGBA();
+		}
+		else {
+			this.YCbCrToRGBA();	
+		}
 		this.canvasContext.putImageData(this.currentRGBA, 0, 0);
+
+		if(this.externalDecodeCallback) {
+			this.externalDecodeCallback(this, this.canvas);
+		}
 	}
 	
 	// If this is a reference picutre then rotate the prediction pointers
@@ -577,10 +598,11 @@ jsmpeg.prototype.YCbCrToRGBA = function() {
 	var pCr = this.currentCr;
 	var pRGBA = this.currentRGBA.data;
 
-
-
 	// Chroma values are the same for each block of 4 pixels, so we proccess
 	// 2 lines at a time, 2 neighboring pixels each.
+	// I wish we could use 32bit writes to the RGBA buffer instead of writing
+	// each byte separately, but we need the automatic clamping of the RGBA
+	// buffer.
 
 	var yIndex1 = 0;
 	var yIndex2 = this.codedWidth;
@@ -640,6 +662,31 @@ jsmpeg.prototype.YCbCrToRGBA = function() {
 		rgbaIndex1 += rgbaNext2Lines;
 		rgbaIndex2 += rgbaNext2Lines;
 		cIndex += cNextLine;
+	}
+};
+
+jsmpeg.prototype.YToRGBA = function() {	
+	// Luma only
+
+	var pY = this.currentY;
+	var pRGBA = this.currentRGBA32;
+
+	var yIndex = 0;
+	var yNext2Lines = (this.codedWidth - this.width);
+
+	var rgbaIndex = 0;	
+	var cols = this.width;
+	var rows = this.height;
+
+	var y;
+
+	for( var row = 0; row < rows; row++ ) {
+		for( var col = 0; col < cols; col++ ) {
+			y = pY[yIndex++];
+			pRGBA[rgbaIndex++] = 0xff000000 | y << 16 | y << 8 | y;
+		}
+		
+		yIndex += yNext2Lines;
 	}
 };
 
@@ -857,6 +904,7 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 		H, V, oddH, oddV,
 		src, dest, last;
 
+	// We use 32bit writes here
 	var dY = this.currentY32;
 	var dCb = this.currentCb32;
 	var dCr = this.currentCr32;
@@ -948,7 +996,12 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 		}
 	}
 	
+	if( this.bwFilter ) {
+		// No need to copy chrominance when black&white filter is active
+		return;
+	}
 	
+
 	// Chrominance
 	
 	width = this.halfWidth;
