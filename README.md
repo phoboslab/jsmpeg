@@ -77,7 +77,7 @@ a.href = window.URL.createObjectURL(blob);
 
 ### Limitations ###
 
-- Playback can only start when the file is fully loaded (when not using streamin). I'm waiting for chunked XHR with ArrayBuffers to arrive in browsers.
+- Playback can only start when the file is fully loaded (when not streaming through WebSockets). I'm waiting for chunked XHR with ArrayBuffers to arrive in browsers.
 - MPEG files with B-Frames look weird - frames are not reordered. This should be relatively easy
 to fix, but most encoders seem to not use B-Frames at all by default.
 - The width of the MPEG video has to be a multiple of 2.
