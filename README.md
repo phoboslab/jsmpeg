@@ -51,7 +51,7 @@ var client = new WebSocket( 'ws://example.com:8084/' );
 var player = new jsmpeg(client, {canvas:canvas});
 ```
 
-##Stream Recording##
+###Stream Recording###
 
 To record an MPEG stream clientside in the browser jsmpeg provides the `.startRecording(cb)` and `.stopRecording()` methods. `.stopRecording()` returns a `Blob` object that can be used to create a download link.
 
