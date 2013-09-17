@@ -30,8 +30,8 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 	this.autoplay = !!opts.autoplay;
 	this.loop = !!opts.loop;
 	this.externalLoadCallback = opts.onload || null;
-	this.bwFilter = opts.bwFilter || false;
 	this.externalDecodeCallback = opts.ondecodeframe || null;
+	this.bwFilter = opts.bwFilter || false;
 
 	this.customIntraQuantMatrix = new Uint8Array(64);
 	this.customNonIntraQuantMatrix = new Uint8Array(64);
@@ -403,6 +403,7 @@ jsmpeg.prototype.scheduleNextFrame = function() {
 	this.lateTime = Date.now() - this.targetTime;
 	var wait = Math.max(0, (1000/this.pictureRate) - this.lateTime);
 	this.targetTime = Date.now() + wait;
+
 	if( wait < 18 ) {
 		this.scheduleAnimation();
 	}
@@ -459,24 +460,33 @@ jsmpeg.prototype.initBuffers = function() {
 	if( this.sequenceStarted ) { return; }
 	this.sequenceStarted = true;
 	
+	
+	// Manually clamp values when writing macroblocks for shitty browsers
+	// that don't support Uint8ClampedArray
+	var MaybeClampedUint8Array = window.Uint8ClampedArray || window.Uint8Array;
+	if( !window.Uint8ClampedArray ) {
+		this.copyBlockToDestination = this.copyBlockToDestinationClamp;
+		this.addBlockToDestination = this.addBlockToDestinationClamp;
+	}
+	
 	// Allocated buffers and resize the canvas
-	this.currentY = new Uint8ClampedArray(this.codedSize);
+	this.currentY = new MaybeClampedUint8Array(this.codedSize);
 	this.currentY32 = new Uint32Array(this.currentY.buffer);
 
-	this.currentCr = new Uint8ClampedArray(this.codedSize >> 2);
+	this.currentCr = new MaybeClampedUint8Array(this.codedSize >> 2);
 	this.currentCr32 = new Uint32Array(this.currentCr.buffer);
 
-	this.currentCb = new Uint8ClampedArray(this.codedSize >> 2);
+	this.currentCb = new MaybeClampedUint8Array(this.codedSize >> 2);
 	this.currentCb32 = new Uint32Array(this.currentCb.buffer);
 	
 
-	this.forwardY = new Uint8ClampedArray(this.codedSize);
+	this.forwardY = new MaybeClampedUint8Array(this.codedSize);
 	this.forwardY32 = new Uint32Array(this.forwardY.buffer);
 
-	this.forwardCr = new Uint8ClampedArray(this.codedSize >> 2);
+	this.forwardCr = new MaybeClampedUint8Array(this.codedSize >> 2);
 	this.forwardCr32 = new Uint32Array(this.forwardCr.buffer);
 
-	this.forwardCb = new Uint8ClampedArray(this.codedSize >> 2);
+	this.forwardCb = new MaybeClampedUint8Array(this.codedSize >> 2);
 	this.forwardCb32 = new Uint32Array(this.forwardCb.buffer);
 	
 	this.canvas.width = this.width;
@@ -667,7 +677,6 @@ jsmpeg.prototype.YCbCrToRGBA = function() {
 
 jsmpeg.prototype.YToRGBA = function() {	
 	// Luma only
-
 	var pY = this.currentY;
 	var pRGBA = this.currentRGBA32;
 
@@ -1298,21 +1307,55 @@ jsmpeg.prototype.decodeBlock = function(block) {
 	var blockData = this.blockData;
 	if( this.macroblockIntra ) {
 		// Overwrite (no prediction)
-		for( var i = 0; i < 8; i++ ) {
-			for( var j = 0; j < 8; j++ ) {
-				destArray[destIndex++] = blockData[n++];
-			}
-			destIndex += scan;
-		}
+		this.copyBlockToDestination(this.blockData, destArray, destIndex, scan);
 	}
 	else {
 		// Add data to the predicted macroblock
-		for( var i = 0; i < 8; i++ ) {
-			for( var j = 0; j < 8; j++ ) {
-				destArray[destIndex++] += blockData[n++];
-			}
-			destIndex += scan;
+		this.addBlockToDestination(this.blockData, destArray, destIndex, scan);
+	}
+};
+
+
+jsmpeg.prototype.copyBlockToDestination = function(blockData, destArray, destIndex, scan) {
+	var n = 0;
+	for( var i = 0; i < 8; i++ ) {
+		for( var j = 0; j < 8; j++ ) {
+			destArray[destIndex++] = blockData[n++];
 		}
+		destIndex += scan;
+	}
+};
+
+jsmpeg.prototype.addBlockToDestination = function(blockData, destArray, destIndex, scan) {
+	var n = 0;
+	for( var i = 0; i < 8; i++ ) {
+		for( var j = 0; j < 8; j++ ) {
+			destArray[destIndex++] += blockData[n++];
+		}
+		destIndex += scan;
+	}
+};
+
+// Clamping version for shitty browsers (IE) that don't support Uint8ClampedArray
+jsmpeg.prototype.copyBlockToDestinationClamp = function(blockData, destArray, destIndex, scan) {
+	var n = 0;
+	for( var i = 0; i < 8; i++ ) {
+		for( var j = 0; j < 8; j++ ) {
+			var p = blockData[n++];
+			destArray[destIndex++] = p > 255 ? 255 : (p < 0 ? 0 : p);
+		}
+		destIndex += scan;
+	}
+};
+
+jsmpeg.prototype.addBlockToDestinationClamp = function(blockData, destArray, destIndex, scan) {
+	var n = 0;
+	for( var i = 0; i < 8; i++ ) {
+		for( var j = 0; j < 8; j++ ) {
+			var p = blockData[n++] + destArray[destIndex];
+			destArray[destIndex++] = p > 255 ? 255 : (p < 0 ? 0 : p);
+		}
+		destIndex += scan;
 	}
 };
 
