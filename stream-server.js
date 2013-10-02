@@ -1,18 +1,22 @@
 
-var STREAM_PORT = 8082,
-	STREAM_SECRET = 's3cret', // CHANGE THIS!
-	WEBSOCKET_PORT = 8084,
+if( process.argv.length < 3 ) {
+	console.log(
+		'Usage: \n' +
+		'node stream-server.js <secret> [<stream-port> <websocket-port>]'
+	);
+	process.exit();
+}
+
+var STREAM_SECRET = process.argv[2],
+	STREAM_PORT = process.argv[3] || 8082,
+	WEBSOCKET_PORT = process.argv[4] || 8084,
 	STREAM_MAGIC_BYTES = 'jsmp'; // Must be 4 bytes
 
-var clients = {};
 var width = 320,
 	height = 240;
 
 // Websocket Server
 var socketServer = new (require('ws').Server)({port: WEBSOCKET_PORT});
-var _uniqueClientId = 1;
-
-var socketError = function() { /* ignore */ };
 socketServer.on('connection', function(socket) {
 	// Send magic bytes and video size to the newly connected socket
 	// struct { char magic[4]; unsigned short width, height;}
@@ -20,25 +24,20 @@ socketServer.on('connection', function(socket) {
 	streamHeader.write(STREAM_MAGIC_BYTES);
 	streamHeader.writeUInt16BE(width, 4);
 	streamHeader.writeUInt16BE(height, 6);
-	socket.send(streamHeader, {binary:true}, socketError);
+	socket.send(streamHeader, {binary:true});
 
-	// Remember client in 'clients' object
-	var clientId = _uniqueClientId++;
-	clients[clientId] = socket;
-	console.log(
-		'WebSocket Connect: client #' + clientId + 
-		' ('+Object.keys(clients).length+' total)'
-	);
-
-	// Delete on close
+	console.log( 'New WebSocket Connection ('+socketServer.clients.length+' total)' );
+	
 	socket.on('close', function(code, message){
-		delete clients[clientId];
-		console.log(
-			'WebSocket Disconnect: client #' + clientId +
-			' ('+Object.keys(clients).length+' total)'
-		);
+		console.log( 'Disconnected WebSocket ('+socketServer.clients.length+' total)' );
 	});
 });
+
+socketServer.broadcast = function(data, opts) {
+	for( var i in this.clients ) {
+		this.clients[i].send(data, opts);
+	}
+};
 
 
 // HTTP Server to accept incomming MPEG Stream
@@ -53,9 +52,7 @@ var streamServer = require('http').createServer( function(request, response) {
 			':' + request.socket.remotePort + ' size: ' + width + 'x' + height
 		);
 		request.on('data', function(data){
-			for( c in clients ) {
-				clients[c].send(data, {binary:true}, socketError);
-			}
+			socketServer.broadcast(data, {binary:true});
 		});
 	}
 	else {
