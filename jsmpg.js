@@ -493,7 +493,11 @@ jsmpeg.prototype.initBuffers = function() {
 	this.canvas.height = this.height;
 	
 	this.currentRGBA = this.canvasContext.getImageData(0, 0, this.width, this.height);
-	this.currentRGBA32 = new Uint32Array( this.currentRGBA.data.buffer );
+
+	if( this.bwFilter ) {
+		// This fails in IE10; don't use the bwFilter if you need to support it.
+		this.currentRGBA32 = new Uint32Array( this.currentRGBA.data.buffer );
+	}
 	this.fillArray(this.currentRGBA.data, 255);
 };
 
