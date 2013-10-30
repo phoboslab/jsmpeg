@@ -941,16 +941,20 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 			while( dest < last ) {
 				y21 = sY[src]; y22 = sY[src+width]; src++;
 				for( var x = 0; x < 4; x++ ) {
-					y11 = y21; y12 = y22; y21 = sY[src]; y22 = sY[src+width]; src++;
+					//y11 = y21; y12 = y22; y21 = sY[src]; y22 = sY[src+width]; src++;
+					y11 = sY[src]; y12 = sY[src+width]; src++;
 					y = (((y11 + y21 + y12 + y22 + 2) >> 2) & 0xff);
 
-					y11 = y21; y12 = y22; y21 = sY[src]; y22 = sY[src+width]; src++;
+					//y11 = y21; y12 = y22; y21 = sY[src]; y22 = sY[src+width]; src++;
+					y21 = sY[src]; y22 = sY[src+width]; src++;
 					y |= (((y11 + y21 + y12 + y22 + 2) << 6) & 0xff00);
 					
-					y11 = y21; y12 = y22; y21 = sY[src]; y22 = sY[src+width]; src++;
+					//y11 = y21; y12 = y22; y21 = sY[src]; y22 = sY[src+width]; src++;
+					y11 = sY[src]; y12 = sY[src+width]; src++;
 					y |= (((y11 + y21 + y12 + y22 + 2) << 14) & 0xff0000);
 
-					y11 = y21; y12 = y22; y21 = sY[src]; y22 = sY[src+width]; src++;
+					//y11 = y21; y12 = y22; y21 = sY[src]; y22 = sY[src+width]; src++;
+					y21 = sY[src]; y22 = sY[src+width]; src++;
 					y |= (((y11 + y21 + y12 + y22 + 2) << 22) & 0xff000000);
 
 					dY[dest++] = y;
@@ -960,18 +964,23 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 		}
 		else {
 			while( dest < last ) {
-				y21 = sY[src]; src++;
+				//y21 = sY[src]; src++;
+				y11 = sY[src++];
 				for( var x = 0; x < 4; x++ ) {
-					y11 = y21; y21 = sY[src]; src++;
+					//y11 = y21; y21 = sY[src]; src++;
+					y21 = sY[src++];
 					y = (((y11 + y21 + 1) >> 1) & 0xff);
 					
-					y11 = y21; y21 = sY[src]; src++;
+					//y11 = y21; y21 = sY[src]; src++;
+					y11 = sY[src++];
 					y |= (((y11 + y21 + 1) << 7) & 0xff00);
 					
-					y11 = y21; y21 = sY[src]; src++;
+					//y11 = y21; y21 = sY[src]; src++;
+					y21 = sY[src++];
 					y |= (((y11 + y21 + 1) << 15) & 0xff0000);
 					
-					y11 = y21; y21 = sY[src]; src++;
+					//y11 = y21; y21 = sY[src]; src++;
+					y11 = sY[src++];
 					y |= (((y11 + y21 + 1) << 23) & 0xff000000);
 
 					dY[dest++] = y;
@@ -1038,23 +1047,31 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 				cb21 = sCb[src]; cb22 = sCb[src+width];
 				src++;
 				for( var x = 0; x < 2; x++ ) {
-					cr11 = cr21; cr12 = cr22; cr21 = sCr[src]; cr22 = sCr[src+width];
-					cb11 = cb21; cb12 = cb22; cb21 = sCb[src]; cb22 = sCb[src+width]; src++;
+					//cr11 = cr21; cr12 = cr22; cr21 = sCr[src]; cr22 = sCr[src+width];
+					cr11 = sCr[src]; cr12 = sCr[src+width];
+					//cb11 = cb21; cb12 = cb22; cb21 = sCb[src]; cb22 = sCb[src+width]; src++;
+					cb11 = sCb[src]; cb12 = sCb[src+width]; src++;
 					cr = (((cr11 + cr21 + cr12 + cr22 + 2) >> 2) & 0xff);
 					cb = (((cb11 + cb21 + cb12 + cb22 + 2) >> 2) & 0xff);
 
-					cr11 = cr21; cr12 = cr22; cr21 = sCr[src]; cr22 = sCr[src+width];
-					cb11 = cb21; cb12 = cb22; cb21 = sCb[src]; cb22 = sCb[src+width]; src++;
+					//cr11 = cr21; cr12 = cr22; cr21 = sCr[src]; cr22 = sCr[src+width];
+					cr21 = sCr[src]; cr22 = sCr[src+width];
+					//cb11 = cb21; cb12 = cb22; cb21 = sCb[src]; cb22 = sCb[src+width]; src++;
+					cb21 = sCb[src]; cb22 = sCb[src+width]; src++;
 					cr |= (((cr11 + cr21 + cr12 + cr22 + 2) << 6) & 0xff00);
 					cb |= (((cb11 + cb21 + cb12 + cb22 + 2) << 6) & 0xff00);
 
-					cr11 = cr21; cr12 = cr22; cr21 = sCr[src]; cr22 = sCr[src+width];
-					cb11 = cb21; cb12 = cb22; cb21 = sCb[src]; cb22 = sCb[src+width]; src++;
+					//cr11 = cr21; cr12 = cr22; cr21 = sCr[src]; cr22 = sCr[src+width];
+					cr11 = sCr[src]; cr12 = sCr[src+width];
+					//cb11 = cb21; cb12 = cb22; cb21 = sCb[src]; cb22 = sCb[src+width]; src++;
+					cb11 = sCb[src]; cb12 = sCb[src+width]; src++;
 					cr |= (((cr11 + cr21 + cr12 + cr22 + 2) << 14) & 0xff0000);
 					cb |= (((cb11 + cb21 + cb12 + cb22 + 2) << 14) & 0xff0000);
 
-					cr11 = cr21; cr12 = cr22; cr21 = sCr[src]; cr22 = sCr[src+width];
-					cb11 = cb21; cb12 = cb22; cb21 = sCb[src]; cb22 = sCb[src+width]; src++;
+					//cr11 = cr21; cr12 = cr22; cr21 = sCr[src]; cr22 = sCr[src+width];
+					cr21 = sCr[src]; cr22 = sCr[src+width];
+					//cb11 = cb21; cb12 = cb22; cb21 = sCb[src]; cb22 = sCb[src+width]; src++;
+					cb21 = sCb[src]; cb22 = sCb[src+width]; src++;
 					cr |= (((cr11 + cr21 + cr12 + cr22 + 2) << 22) & 0xff000000);
 					cb |= (((cb11 + cb21 + cb12 + cb22 + 2) << 22) & 0xff000000);
 
@@ -1071,23 +1088,31 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 				cb21 = sCb[src];
 				src++;
 				for( var x = 0; x < 2; x++ ) {
-					cr11 = cr21; cr21 = sCr[src];
-					cb11 = cb21; cb21 = sCb[src]; src++;
+					//cr11 = cr21; cr21 = sCr[src];
+					cr11 = sCr[src];
+					//cb11 = cb21; cb21 = sCb[src]; src++;
+					cb11 = sCb[src++];
 					cr = (((cr11 + cr21 + 1) >> 1) & 0xff);
 					cb = (((cb11 + cb21 + 1) >> 1) & 0xff);
 
-					cr11 = cr21; cr21 = sCr[src];
-					cb11 = cb21; cb21 = sCb[src]; src++;
+					//cr11 = cr21; cr21 = sCr[src];
+					cr21 = sCr[src];
+					//cb11 = cb21; cb21 = sCb[src]; src++;
+					cb21 = sCb[src++];
 					cr |= (((cr11 + cr21 + 1) << 7) & 0xff00);
 					cb |= (((cb11 + cb21 + 1) << 7) & 0xff00);
 
-					cr11 = cr21; cr21 = sCr[src];
-					cb11 = cb21; cb21 = sCb[src]; src++;
+					//cr11 = cr21; cr21 = sCr[src];
+					cr11 = sCr[src];
+					//cb11 = cb21; cb21 = sCb[src]; src++;
+					cb11 = sCb[src++];
 					cr |= (((cr11 + cr21 + 1) << 15) & 0xff0000);
 					cb |= (((cb11 + cb21 + 1) << 15) & 0xff0000);
 
-					cr11 = cr21; cr21 = sCr[src];
-					cb11 = cb21; cb21 = sCb[src]; src++;
+					//cr11 = cr21; cr21 = sCr[src];
+					cr21 = sCr[src];
+					//cb11 = cb21; cb21 = sCb[src]; src++;
+					cb21 = sCb[src++];
 					cr |= (((cr11 + cr21 + 1) << 23) & 0xff000000);
 					cb |= (((cb11 + cb21 + 1) << 23) & 0xff000000);
 
