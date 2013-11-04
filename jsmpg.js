@@ -26,6 +26,7 @@ var requestAnimFrame = (function(){
 		
 var jsmpeg = window.jsmpeg = function( url, opts ) {
 	opts = opts || {};
+	this.benchmark = !!opts.benchmark;
 	this.canvas = opts.canvas || document.createElement('canvas');
 	this.autoplay = !!opts.autoplay;
 	this.loop = !!opts.loop;
@@ -404,7 +405,21 @@ jsmpeg.prototype.scheduleNextFrame = function() {
 	var wait = Math.max(0, (1000/this.pictureRate) - this.lateTime);
 	this.targetTime = Date.now() + wait;
 
-	if( wait < 18 ) {
+	if(this.benchmark) {
+		var now = Date.now();
+		if(!this.benchframe) {
+			this.benchstart = now;
+			this.benchframe = 0;
+		}
+		this.benchframe++;
+		var timepassed = now - this.benchstart;
+		if(this.benchframe >= 100) {
+			if(console) console.debug("frames per second: " + (this.benchframe / timepassed) * 1000 );
+			this.benchframe = null;
+		}
+		setTimeout( this.nextFrame.bind(this), 0);
+	}
+	else if( wait < 18) {
 		this.scheduleAnimation();
 	}
 	else {
