@@ -414,7 +414,8 @@ jsmpeg.prototype.scheduleNextFrame = function() {
 		this.benchframe++;
 		var timepassed = now - this.benchstart;
 		if(this.benchframe >= 100) {
-			if(console) console.debug("frames per second: " + (this.benchframe / timepassed) * 1000 );
+			this.benchfps = (this.benchframe / timepassed) * 1000;
+			if(console) console.log("frames per second: " + this.benchfps);
 			this.benchframe = null;
 		}
 		setTimeout( this.nextFrame.bind(this), 0);
