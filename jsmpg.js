@@ -405,7 +405,7 @@ jsmpeg.prototype.scheduleNextFrame = function() {
 	var wait = Math.max(0, (1000/this.pictureRate) - this.lateTime);
 	this.targetTime = Date.now() + wait;
 
-	if(this.benchmark) {
+	if( this.benchmark ) {
 		var now = Date.now();
 		if(!this.benchframe) {
 			this.benchstart = now;
@@ -413,9 +413,11 @@ jsmpeg.prototype.scheduleNextFrame = function() {
 		}
 		this.benchframe++;
 		var timepassed = now - this.benchstart;
-		if(this.benchframe >= 100) {
+		if( this.benchframe >= 100 ) {
 			this.benchfps = (this.benchframe / timepassed) * 1000;
-			if(console) console.log("frames per second: " + this.benchfps);
+			if( console ) {
+				console.log("frames per second: " + this.benchfps);
+			}
 			this.benchframe = null;
 		}
 		setTimeout( this.nextFrame.bind(this), 0);
