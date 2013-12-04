@@ -31,6 +31,7 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 	this.autoplay = !!opts.autoplay;
 	this.loop = !!opts.loop;
 	this.externalLoadCallback = opts.onload || null;
+	this.externalPlayfinishedCallback = opts.onfinished || null;
 	this.externalDecodeCallback = opts.ondecodeframe || null;
 	this.bwFilter = opts.bwFilter || false;
 
@@ -387,6 +388,7 @@ jsmpeg.prototype.nextFrame = function() {
 		}
 		else if( code == BitReader.NOT_FOUND ) {
 			this.stop(); // Jump back to the beginning
+            this.externalPlayfinishedCallback(this);
 
 			// Only loop if we found a sequence header
 			if( this.loop && this.sequenceStarted ) {
