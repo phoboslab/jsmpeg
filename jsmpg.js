@@ -389,7 +389,7 @@ jsmpeg.prototype.nextFrame = function() {
 		else if( code == BitReader.NOT_FOUND ) {
 			this.stop(); // Jump back to the beginning
 
-			if( this.this.externalFinishedCallback ) {
+			if( this.externalFinishedCallback ) {
 				this.externalFinishedCallback(this);
 			}
 
