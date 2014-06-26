@@ -35,10 +35,12 @@ socketServer.on('connection', function(socket) {
 
 socketServer.broadcast = function(data, opts) {
 	for( var i in this.clients ) {
-		if (this.clients[i].readyState == 1)
+		if (this.clients[i].readyState == 1) {
 			this.clients[i].send(data, opts);
-		else
-			this.emit("error", "not connected");
+		}
+		else {
+			console.log( 'Error: Client ('+i+') not connected.' );
+		}
 	}
 };
 
