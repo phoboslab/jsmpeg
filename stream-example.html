@@ -8,10 +8,20 @@
 			background: #333;
 			text-align: center;
 			margin-top: 10%;
-		}	
+		}
+		#videoCanvas {
+			/* Always stretch the canvas to 640x480, regardless of its
+			internal size. */
+			width: 640px;
+			height: 480px;
+		}
 	</style>
 </head>
-<body>		
+<body>
+	<!-- The Canvas size specified here is the "initial" internal resolution. jsmpeg will
+		change this internal resolution to whatever the source provides. The size the
+		canvas is displayed on the website is dictated by the CSS style.
+	-->
 	<canvas id="videoCanvas" width="640" height="480">
 		<p>
 			Please use a browser that supports the Canvas Element, like
