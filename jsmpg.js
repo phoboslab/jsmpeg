@@ -361,6 +361,31 @@ jsmpeg.prototype.fillArray = function(a, value) {
 	}
 };
 
+jsmpeg.prototype.cachedFrameCount = 0;
+jsmpeg.prototype.calculateFrameCount = function() {
+	if( !this.buffer || this.cachedFrameCount ) { 
+		return this.cachedFrameCount; 
+	}
+	
+	// Remember the buffer position, so we can rewind to the beginning and 
+	// reset to the current position afterwards
+	var currentPlaybackIndex = this.buffer.index,
+		frames = 0;
+	
+	this.buffer.index = 0;
+	while( this.findStartCode(START_PICTURE) !== BitReader.NOT_FOUND ) {
+		frames++;
+	}
+	this.buffer.index = currentPlaybackIndex;
+	
+	this.cachedFrameCount = frames;
+	return frames;
+};
+
+jsmpeg.prototype.calculateDuration = function() {
+	return this.calculateFrameCount() * (1/this.pictureRate);
+};
+
 
 
 // ----------------------------------------------------------------------------

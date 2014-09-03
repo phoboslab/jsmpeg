@@ -28,7 +28,16 @@ player.stop();
 // An 'onload' callback can be specified in the 'options' argument
 var mpegLoaded = function( player ) {
 	console.log('Loaded', player);
-}
+	
+	// calculateFrameCount() and calculateDuration() can only be called
+	// after the mpeg has been fully loaded. So this callback is the ideal
+	// place to fetch this info
+	var frames = player.calculateFrameCount(),
+		duration = player.calculateDuration();
+		
+	console.log('Duration: '+duration+' seconds ('+frames+' frames)');
+};
+
 var player = new jsmpeg('file.mpeg', {onload:mpegLoaded});
 
 // If you don't use 'autoplay' and don't explicitly call .play(), you can get individual
