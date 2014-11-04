@@ -846,7 +846,7 @@ jsmpeg.prototype.renderFrameGL = function() {
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, this.YTexture);
 
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, this.width, this.height, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, uint8Y);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, this.codedWidth, this.codedHeight, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, uint8Y);
 	
 	gl.activeTexture(gl.TEXTURE1);
 	gl.bindTexture(gl.TEXTURE_2D, this.CBTexture);
