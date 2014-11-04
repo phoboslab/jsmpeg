@@ -277,16 +277,16 @@ jsmpeg.prototype.load = function( url ) {
 		}
 	};
 
-	if( !this.gl ) {
-		request.onprogress = this.updateLoader.bind(this);
-	}
+	request.onprogress = this.gl 
+		? this.updateLoaderGL.bind(this) 
+		: this.updateLoader2D.bind(this);
 
 	request.open('GET', url);
 	request.responseType = "arraybuffer";
 	request.send();
 };
 
-jsmpeg.prototype.updateLoader = function( ev ) {
+jsmpeg.prototype.updateLoader2D = function( ev ) {
 	var 
 		p = ev.loaded / ev.total,
 		w = this.canvas.width,
@@ -297,6 +297,12 @@ jsmpeg.prototype.updateLoader = function( ev ) {
 	ctx.fillRect(0, 0, w, h);
 	ctx.fillStyle = '#fff';
 	ctx.fillRect(0, h - h*p, w, h*p);
+};
+
+jsmpeg.prototype.updateLoaderGL = function( ev ) {
+	var gl = this.gl;
+	gl.uniform1f(gl.getUniformLocation(this.loadingProgram, 'loaded'), (ev.loaded / ev.total));
+	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 };
 	
 jsmpeg.prototype.loadCallback = function(file) {
@@ -550,7 +556,10 @@ jsmpeg.prototype.initBuffers = function() {
 	this.canvas.width = this.width;
 	this.canvas.height = this.height;
 	
-	if( !this.gl ) {
+	if( this.gl ) {
+		this.gl.useProgram(this.program);
+	}
+	else {
 		this.currentRGBA = this.canvasContext.getImageData(0, 0, this.width, this.height);
 		this.fillArray(this.currentRGBA.data, 255);
 	}
@@ -736,8 +745,8 @@ jsmpeg.prototype.renderFrame2D = function() {
 jsmpeg.prototype.gl = null;
 jsmpeg.prototype.program = null;
 jsmpeg.prototype.YTexture = null;
-jsmpeg.prototype.UTexture = null;
-jsmpeg.prototype.VTexture = null;
+jsmpeg.prototype.CBTexture = null;
+jsmpeg.prototype.CRTexture = null;
 
 jsmpeg.prototype.createTexture = function(index, name) {
 	var gl = this.gl;
@@ -777,11 +786,16 @@ jsmpeg.prototype.initWebGL = function() {
 	if (!gl) {
 		return false;
 	}
-	
-	// setup shaders
+
+	// init buffers
+	this.buffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 0, 1, 1, 0, 1, 1]), gl.STATIC_DRAW);
+
+	// The main YCbCrToRGBA Shader
 	this.program = gl.createProgram();
-	gl.attachShader(this.program, this.compileShader(gl.VERTEX_SHADER, YCBCRTORGBA_VERTEX_SHADER));
-	gl.attachShader(this.program, this.compileShader(gl.FRAGMENT_SHADER, YCBCRTORGBA_FRAGMENT_SHADER));
+	gl.attachShader(this.program, this.compileShader(gl.VERTEX_SHADER, SHADER_VERTEX_IDENTITY));
+	gl.attachShader(this.program, this.compileShader(gl.FRAGMENT_SHADER, SHADER_FRAGMENT_YCBCRTORGBA));
 	gl.linkProgram(this.program);
 	
 	if( !gl.getProgramParameter(this.program, gl.LINK_STATUS) ) {
@@ -792,15 +806,23 @@ jsmpeg.prototype.initWebGL = function() {
 	
 	// setup textures
 	this.YTexture = this.createTexture(0, 'YTexture');
-	this.UTexture = this.createTexture(1, 'UTexture');
-	this.VTexture = this.createTexture(2, 'VTexture');
-	
-	// init buffers
-	this.buffer = gl.createBuffer();
-	gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 0, 1, 1, 0, 1, 1]), gl.STATIC_DRAW);
+	this.CBTexture = this.createTexture(1, 'CBTexture');
+	this.CRTexture = this.createTexture(2, 'CRTexture');
 	
 	var vertexAttr = gl.getAttribLocation(this.program, 'vertex');
+	gl.enableVertexAttribArray(vertexAttr);
+	gl.vertexAttribPointer(vertexAttr, 2, gl.FLOAT, false, 0, 0);
+
+
+	// Shader for the loading screen
+	this.loadingProgram = gl.createProgram();
+	gl.attachShader(this.loadingProgram, this.compileShader(gl.VERTEX_SHADER, SHADER_VERTEX_IDENTITY));
+	gl.attachShader(this.loadingProgram, this.compileShader(gl.FRAGMENT_SHADER, SHADER_FRAGMENT_LOADING));
+	gl.linkProgram(this.loadingProgram);
+
+	gl.useProgram(this.loadingProgram);
+
+	vertexAttr = gl.getAttribLocation(this.loadingProgram, 'vertex');
 	gl.enableVertexAttribArray(vertexAttr);
 	gl.vertexAttribPointer(vertexAttr, 2, gl.FLOAT, false, 0, 0);
 	
@@ -822,11 +844,11 @@ jsmpeg.prototype.renderFrameGL = function() {
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, this.width, this.height, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, uint8Y);
 	
 	gl.activeTexture(gl.TEXTURE1);
-	gl.bindTexture(gl.TEXTURE_2D, this.UTexture);
+	gl.bindTexture(gl.TEXTURE_2D, this.CBTexture);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, this.halfWidth, this.halfHeight, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, uint8Cr);
 	
 	gl.activeTexture(gl.TEXTURE2);
-	gl.bindTexture(gl.TEXTURE_2D, this.VTexture);
+	gl.bindTexture(gl.TEXTURE_2D, this.CRTexture);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, this.halfWidth, this.halfHeight, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, uint8Cb);
 	
 	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -2288,17 +2310,17 @@ var
 	START_USER_DATA = 0xB2,
 
 	// Shaders for accelerated WebGL YCbCrToRGBA conversion
-	YCBCRTORGBA_FRAGMENT_SHADER = [
+	SHADER_FRAGMENT_YCBCRTORGBA = [
 		'precision highp float;',
 		'uniform sampler2D YTexture;',
-		'uniform sampler2D UTexture;',
-		'uniform sampler2D VTexture;',
+		'uniform sampler2D CBTexture;',
+		'uniform sampler2D CRTexture;',
 		'varying vec2 texCoord;',
 	
 		'void main() {',
 			'float y = texture2D(YTexture, texCoord).r;',
-			'float cr = texture2D(UTexture, texCoord).r - 0.5;',
-			'float cb = texture2D(VTexture, texCoord).r - 0.5;',
+			'float cr = texture2D(CBTexture, texCoord).r - 0.5;',
+			'float cb = texture2D(CRTexture, texCoord).r - 0.5;',
 			
 			'gl_FragColor = vec4(',
 				'y + 1.4 * cr,',
@@ -2308,8 +2330,20 @@ var
 			');',
 		'}'
 	].join('\n'),
+
+	SHADER_FRAGMENT_LOADING = [
+		'precision highp float;',
+		'uniform float loaded;',
+		'varying vec2 texCoord;',
+
+		'void main() {',
+			'float c = ceil(loaded-(1.0-texCoord.y));',
+			//'float c = ceil(loaded-(1.0-texCoord.y) +sin((texCoord.x+loaded)*16.0)*0.01);', // Fancy wave anim
+			'gl_FragColor = vec4(c,c,c,1);',
+		'}'
+	].join('\n'),
 	
-	YCBCRTORGBA_VERTEX_SHADER = [
+	SHADER_VERTEX_IDENTITY = [
 		'attribute vec2 vertex;',
 		'varying vec2 texCoord;',
 		
