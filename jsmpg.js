@@ -38,6 +38,8 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 	this.customIntraQuantMatrix = new Uint8Array(64);
 	this.customNonIntraQuantMatrix = new Uint8Array(64);
 	this.blockData = new Int32Array(64);
+  this.zeroBlockData = new Int32Array(64);
+  this.fillArray(this.zeroBlockData, 0);
 
 	this.canvasContext = this.canvas.getContext('2d');
 
@@ -692,31 +694,27 @@ jsmpeg.prototype.YCbCrToRGBA = function() {
 			g = ((cb * 88) >> 8) - 44 + ((cr * 183) >> 8) - 91;
 			b = (cb + ((cb * 198) >> 8)) - 227;
 			
-			// Line 1
-			y = pY[yIndex1++];
-			pRGBA[rgbaIndex1] = y + r;
-			pRGBA[rgbaIndex1+1] = y - g;
-			pRGBA[rgbaIndex1+2] = y + b;
-			rgbaIndex1 += 4;
-			
-			y = pY[yIndex1++];
-			pRGBA[rgbaIndex1] = y + r;
-			pRGBA[rgbaIndex1+1] = y - g;
-			pRGBA[rgbaIndex1+2] = y + b;
-			rgbaIndex1 += 4;
-			
-			// Line 2
-			y = pY[yIndex2++];
-			pRGBA[rgbaIndex2] = y + r;
-			pRGBA[rgbaIndex2+1] = y - g;
-			pRGBA[rgbaIndex2+2] = y + b;
-			rgbaIndex2 += 4;
-			
-			y = pY[yIndex2++];
-			pRGBA[rgbaIndex2] = y + r;
-			pRGBA[rgbaIndex2+1] = y - g;
-			pRGBA[rgbaIndex2+2] = y + b;
-			rgbaIndex2 += 4;
+      // Line 1
+      var y1 = pY[yIndex1++];
+      var y2 = pY[yIndex1++];
+      pRGBA[rgbaIndex1]   = y1 + r;
+      pRGBA[rgbaIndex1+1] = y1 - g;
+      pRGBA[rgbaIndex1+2] = y1 + b;      
+      pRGBA[rgbaIndex1+4] = y2 + r;
+      pRGBA[rgbaIndex1+5] = y2 - g;
+      pRGBA[rgbaIndex1+6] = y2 + b;
+      rgbaIndex1 += 8;
+      
+      // Line 2
+      var y3 = pY[yIndex2++];
+      var y4 = pY[yIndex2++];
+      pRGBA[rgbaIndex2]   = y3 + r;
+      pRGBA[rgbaIndex2+1] = y3 - g;
+      pRGBA[rgbaIndex2+2] = y3 + b;      
+      pRGBA[rgbaIndex2+4] = y4 + r;
+      pRGBA[rgbaIndex2+5] = y4 - g;
+      pRGBA[rgbaIndex2+6] = y4 + b;
+      rgbaIndex2 += 8;
 		}
 		
 		yIndex1 += yNext2Lines;
@@ -1211,7 +1209,7 @@ jsmpeg.prototype.decodeBlock = function(block) {
 		quantMatrix;
 	
 	// Clear preverious data
-	this.fillArray(this.blockData, 0);
+	this.blockData.set(this.zeroBlockData);
 	
 	// Decode DC coefficient of intra-coded blocks
 	if( this.macroblockIntra ) {
@@ -1370,20 +1368,30 @@ jsmpeg.prototype.decodeBlock = function(block) {
 
 jsmpeg.prototype.copyBlockToDestination = function(blockData, destArray, destIndex, scan) {
 	var n = 0;
-	for( var i = 0; i < 8; i++ ) {
-		for( var j = 0; j < 8; j++ ) {
-			destArray[destIndex++] = blockData[n++];
-		}
+	while(n < 64) {
+    destArray[destIndex++] = blockData[n++];
+    destArray[destIndex++] = blockData[n++];
+    destArray[destIndex++] = blockData[n++];
+    destArray[destIndex++] = blockData[n++];
+    destArray[destIndex++] = blockData[n++];
+    destArray[destIndex++] = blockData[n++];
+    destArray[destIndex++] = blockData[n++];
+    destArray[destIndex++] = blockData[n++];
 		destIndex += scan;
 	}
 };
 
 jsmpeg.prototype.addBlockToDestination = function(blockData, destArray, destIndex, scan) {
 	var n = 0;
-	for( var i = 0; i < 8; i++ ) {
-		for( var j = 0; j < 8; j++ ) {
-			destArray[destIndex++] += blockData[n++];
-		}
+  while(n < 64) {
+    destArray[destIndex++] += blockData[n++];
+    destArray[destIndex++] += blockData[n++];
+    destArray[destIndex++] += blockData[n++];
+    destArray[destIndex++] += blockData[n++];
+    destArray[destIndex++] += blockData[n++];
+    destArray[destIndex++] += blockData[n++];
+    destArray[destIndex++] += blockData[n++];
+    destArray[destIndex++] += blockData[n++];
 		destIndex += scan;
 	}
 };
