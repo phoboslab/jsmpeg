@@ -414,6 +414,7 @@ jsmpeg.prototype.targetTime = 0;
 jsmpeg.prototype.benchmark = false;
 jsmpeg.prototype.benchFrame = 0;
 jsmpeg.prototype.benchDecodeTimes = 0;
+jsmpeg.prototype.benchAvgFrameTime = 0;
 
 jsmpeg.prototype.now = function() {
 	return window.performance 
@@ -466,10 +467,10 @@ jsmpeg.prototype.scheduleNextFrame = function() {
 	if( this.benchmark ) {
 		this.benchFrame++;
 		if( this.benchFrame >= 120 ) {
-			var frameTime = this.benchDecodeTimes / this.benchFrame;
-			console.log("Average time per frame:", frameTime, 'ms');
+			this.benchAvgFrameTime = this.benchDecodeTimes / this.benchFrame;
 			this.benchFrame = 0;
 			this.benchDecodeTimes = 0;
+			if( window.console ) { console.log("Average time per frame:", this.benchAvgFrameTime, 'ms'); }
 		}
 		setTimeout( this.nextFrame.bind(this), 0);
 	}
