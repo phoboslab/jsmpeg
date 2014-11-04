@@ -38,8 +38,8 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 	this.customIntraQuantMatrix = new Uint8Array(64);
 	this.customNonIntraQuantMatrix = new Uint8Array(64);
 	this.blockData = new Int32Array(64);
-  this.zeroBlockData = new Int32Array(64);
-  this.fillArray(this.zeroBlockData, 0);
+	this.zeroBlockData = new Int32Array(64);
+	this.fillArray(this.zeroBlockData, 0);
 
 	this.canvasContext = this.canvas.getContext('2d');
 
@@ -694,27 +694,27 @@ jsmpeg.prototype.YCbCrToRGBA = function() {
 			g = ((cb * 88) >> 8) - 44 + ((cr * 183) >> 8) - 91;
 			b = (cb + ((cb * 198) >> 8)) - 227;
 			
-      // Line 1
-      var y1 = pY[yIndex1++];
-      var y2 = pY[yIndex1++];
-      pRGBA[rgbaIndex1]   = y1 + r;
-      pRGBA[rgbaIndex1+1] = y1 - g;
-      pRGBA[rgbaIndex1+2] = y1 + b;      
-      pRGBA[rgbaIndex1+4] = y2 + r;
-      pRGBA[rgbaIndex1+5] = y2 - g;
-      pRGBA[rgbaIndex1+6] = y2 + b;
-      rgbaIndex1 += 8;
-      
-      // Line 2
-      var y3 = pY[yIndex2++];
-      var y4 = pY[yIndex2++];
-      pRGBA[rgbaIndex2]   = y3 + r;
-      pRGBA[rgbaIndex2+1] = y3 - g;
-      pRGBA[rgbaIndex2+2] = y3 + b;      
-      pRGBA[rgbaIndex2+4] = y4 + r;
-      pRGBA[rgbaIndex2+5] = y4 - g;
-      pRGBA[rgbaIndex2+6] = y4 + b;
-      rgbaIndex2 += 8;
+			// Line 1
+			var y1 = pY[yIndex1++];
+			var y2 = pY[yIndex1++];
+			pRGBA[rgbaIndex1]   = y1 + r;
+			pRGBA[rgbaIndex1+1] = y1 - g;
+			pRGBA[rgbaIndex1+2] = y1 + b;
+			pRGBA[rgbaIndex1+4] = y2 + r;
+			pRGBA[rgbaIndex1+5] = y2 - g;
+			pRGBA[rgbaIndex1+6] = y2 + b;
+			rgbaIndex1 += 8;
+
+			// Line 2
+			var y3 = pY[yIndex2++];
+			var y4 = pY[yIndex2++];
+			pRGBA[rgbaIndex2]   = y3 + r;
+			pRGBA[rgbaIndex2+1] = y3 - g;
+			pRGBA[rgbaIndex2+2] = y3 + b;
+			pRGBA[rgbaIndex2+4] = y4 + r;
+			pRGBA[rgbaIndex2+5] = y4 - g;
+			pRGBA[rgbaIndex2+6] = y4 + b;
+			rgbaIndex2 += 8;
 		}
 		
 		yIndex1 += yNext2Lines;
@@ -1204,232 +1204,232 @@ jsmpeg.prototype.dcPredictorCb;
 jsmpeg.prototype.blockData = null;
 jsmpeg.prototype.decodeBlock = function(block) {
 	
-  var
-    n = 0,
-    quantMatrix;
-    
-  // Decode DC coefficient of intra-coded blocks
-  if( this.macroblockIntra ) {
-    var 
-      predictor,
-      dctSize;
-    
-    // DC prediction
-    
-    if( block < 4 ) {
-      predictor = this.dcPredictorY;
-      dctSize = this.readCode(DCT_DC_SIZE_LUMINANCE);
-    }
-    else {
-      predictor = (block == 4 ? this.dcPredictorCr : this.dcPredictorCb);
-      dctSize = this.readCode(DCT_DC_SIZE_CHROMINANCE);
-    }
-    
-    // Read DC coeff
-    if( dctSize > 0 ) {
-      var differential = this.buffer.getBits(dctSize);
-      if( (differential & (1 << (dctSize - 1))) != 0 ) {
-        this.blockData[0] = predictor + differential;
-      }
-      else {
-        this.blockData[0] = predictor + ((-1 << dctSize)|(differential+1));
-      }
-    }
-    else {
-      this.blockData[0] = predictor;
-    }
-    
-    // Save predictor value
-    if( block < 4 ) {
-      this.dcPredictorY = this.blockData[0];
-    }
-    else if( block == 4 ) {
-      this.dcPredictorCr = this.blockData[0];
-    }
-    else {
-      this.dcPredictorCb = this.blockData[0];
-    }
-    
-    // Dequantize + premultiply
-    this.blockData[0] <<= (3 + 5);
-    
-    quantMatrix = this.intraQuantMatrix;
-    n = 1;
-  }
-  else {
-    quantMatrix = this.nonIntraQuantMatrix;
-  }
-  
-  // Decode AC coefficients (+DC for non-intra)
-  var level = 0;
-  while( true ) {
-    var 
-      run = 0,
-      coeff = this.readCode(DCT_COEFF);
-    
-    if( (coeff == 0x0001) && (n > 0) && (this.buffer.getBits(1) == 0) ) {
-      // end_of_block
-      break;
-    }
-    if( coeff == 0xffff ) {
-      // escape
-      run = this.buffer.getBits(6);
-      level = this.buffer.getBits(8);
-      if( level == 0 ) {
-        level = this.buffer.getBits(8);
-      }
-      else if( level == 128 ) {
-        level = this.buffer.getBits(8) - 256;
-      }
-      else if( level > 128 ) {
-        level = level - 256;
-      }
-    }
-    else {
-      run = coeff >> 8;
-      level = coeff & 0xff;
-      if( this.buffer.getBits(1) ) {
-        level = -level;
-      }
-    }
-    
-    n += run;
-    var dezigZagged = ZIG_ZAG[n];
-    n++;
-    
-    // Dequantize, oddify, clip
-    level <<= 1;
-    if( !this.macroblockIntra ) {
-      level += (level < 0 ? -1 : 1);
-    }
-    level = (level * this.quantizerScale * quantMatrix[dezigZagged]) >> 4;
-    if( (level & 1) == 0 ) {
-      level -= level > 0 ? 1 : -1;
-    }
-    if( level > 2047 ) {
-      level = 2047;
-    }
-    else if( level < -2048 ) {
-      level = -2048;
-    }
+	var
+		n = 0,
+		quantMatrix;
+		
+	// Decode DC coefficient of intra-coded blocks
+	if( this.macroblockIntra ) {
+		var 
+			predictor,
+			dctSize;
+		
+		// DC prediction
+		
+		if( block < 4 ) {
+			predictor = this.dcPredictorY;
+			dctSize = this.readCode(DCT_DC_SIZE_LUMINANCE);
+		}
+		else {
+			predictor = (block == 4 ? this.dcPredictorCr : this.dcPredictorCb);
+			dctSize = this.readCode(DCT_DC_SIZE_CHROMINANCE);
+		}
+		
+		// Read DC coeff
+		if( dctSize > 0 ) {
+			var differential = this.buffer.getBits(dctSize);
+			if( (differential & (1 << (dctSize - 1))) != 0 ) {
+				this.blockData[0] = predictor + differential;
+			}
+			else {
+				this.blockData[0] = predictor + ((-1 << dctSize)|(differential+1));
+			}
+		}
+		else {
+			this.blockData[0] = predictor;
+		}
+		
+		// Save predictor value
+		if( block < 4 ) {
+			this.dcPredictorY = this.blockData[0];
+		}
+		else if( block == 4 ) {
+			this.dcPredictorCr = this.blockData[0];
+		}
+		else {
+			this.dcPredictorCb = this.blockData[0];
+		}
+		
+		// Dequantize + premultiply
+		this.blockData[0] <<= (3 + 5);
+		
+		quantMatrix = this.intraQuantMatrix;
+		n = 1;
+	}
+	else {
+		quantMatrix = this.nonIntraQuantMatrix;
+	}
+	
+	// Decode AC coefficients (+DC for non-intra)
+	var level = 0;
+	while( true ) {
+		var 
+			run = 0,
+			coeff = this.readCode(DCT_COEFF);
+		
+		if( (coeff == 0x0001) && (n > 0) && (this.buffer.getBits(1) == 0) ) {
+			// end_of_block
+			break;
+		}
+		if( coeff == 0xffff ) {
+			// escape
+			run = this.buffer.getBits(6);
+			level = this.buffer.getBits(8);
+			if( level == 0 ) {
+				level = this.buffer.getBits(8);
+			}
+			else if( level == 128 ) {
+				level = this.buffer.getBits(8) - 256;
+			}
+			else if( level > 128 ) {
+				level = level - 256;
+			}
+		}
+		else {
+			run = coeff >> 8;
+			level = coeff & 0xff;
+			if( this.buffer.getBits(1) ) {
+				level = -level;
+			}
+		}
+		
+		n += run;
+		var dezigZagged = ZIG_ZAG[n];
+		n++;
+		
+		// Dequantize, oddify, clip
+		level <<= 1;
+		if( !this.macroblockIntra ) {
+			level += (level < 0 ? -1 : 1);
+		}
+		level = (level * this.quantizerScale * quantMatrix[dezigZagged]) >> 4;
+		if( (level & 1) == 0 ) {
+			level -= level > 0 ? 1 : -1;
+		}
+		if( level > 2047 ) {
+			level = 2047;
+		}
+		else if( level < -2048 ) {
+			level = -2048;
+		}
 
-    // Save premultiplied coefficient
-    this.blockData[dezigZagged] = level * PREMULTIPLIER_MATRIX[dezigZagged];
-  };
-  
-  // Move block to its place
-  var
-    destArray,
-    destIndex,
-    scan;
-  
-  if( block < 4 ) {
-    destArray = this.currentY;
-    scan = this.codedWidth - 8;
-    destIndex = (this.mbRow * this.codedWidth + this.mbCol) << 4;
-    if( (block & 1) != 0 ) {
-      destIndex += 8;
-    }
-    if( (block & 2) != 0 ) {
-      destIndex += this.codedWidth << 3;
-    }
-  }
-  else {
-    destArray = (block == 4) ? this.currentCb : this.currentCr;
-    scan = (this.codedWidth >> 1) - 8;
-    destIndex = ((this.mbRow * this.codedWidth) << 2) + (this.mbCol << 3);
-  }
+		// Save premultiplied coefficient
+		this.blockData[dezigZagged] = level * PREMULTIPLIER_MATRIX[dezigZagged];
+	};
+	
+	// Move block to its place
+	var
+		destArray,
+		destIndex,
+		scan;
+	
+	if( block < 4 ) {
+		destArray = this.currentY;
+		scan = this.codedWidth - 8;
+		destIndex = (this.mbRow * this.codedWidth + this.mbCol) << 4;
+		if( (block & 1) != 0 ) {
+			destIndex += 8;
+		}
+		if( (block & 2) != 0 ) {
+			destIndex += this.codedWidth << 3;
+		}
+	}
+	else {
+		destArray = (block == 4) ? this.currentCb : this.currentCr;
+		scan = (this.codedWidth >> 1) - 8;
+		destIndex = ((this.mbRow * this.codedWidth) << 2) + (this.mbCol << 3);
+	}
 
-  if( this.macroblockIntra ) {
-    // Overwrite (no prediction)
-    if (n == 1) {
-      this.copyValueToDestination((this.blockData[0] + 128) >> 8, destArray, destIndex, scan);
-      this.blockData[0] = 0;
-    } else {
-      this.IDCT();
-      this.copyBlockToDestination(this.blockData, destArray, destIndex, scan);
-      this.blockData.set(this.zeroBlockData);  
-    }
-  }
-  else {
-    // Add data to the predicted macroblock
-    if (n == 1) {
-      this.addValueToDestination((this.blockData[0] + 128) >> 8, destArray, destIndex, scan);
-      this.blockData[0] = 0;
-    } else {
-      this.IDCT();
-      this.addBlockToDestination(this.blockData, destArray, destIndex, scan);  
-      this.blockData.set(this.zeroBlockData);  
-    }
-  }
-  
-  n = 0;
+	if( this.macroblockIntra ) {
+		// Overwrite (no prediction)
+		if (n == 1) {
+			this.copyValueToDestination((this.blockData[0] + 128) >> 8, destArray, destIndex, scan);
+			this.blockData[0] = 0;
+		} else {
+			this.IDCT();
+			this.copyBlockToDestination(this.blockData, destArray, destIndex, scan);
+			this.blockData.set(this.zeroBlockData);	
+		}
+	}
+	else {
+		// Add data to the predicted macroblock
+		if (n == 1) {
+			this.addValueToDestination((this.blockData[0] + 128) >> 8, destArray, destIndex, scan);
+			this.blockData[0] = 0;
+		} else {
+			this.IDCT();
+			this.addBlockToDestination(this.blockData, destArray, destIndex, scan);	
+			this.blockData.set(this.zeroBlockData);	
+		}
+	}
+	
+	n = 0;
 };
 
 jsmpeg.prototype.copyBlockToDestination = function(_blockData, _destArray, _destIndex, scan) {
-  var blockData = _blockData;
-  var destArray = _destArray;
-  var destIndex = _destIndex;
+	var blockData = _blockData;
+	var destArray = _destArray;
+	var destIndex = _destIndex;
 
-  for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
-    destArray[destIndex+0] = blockData[n+0];
-    destArray[destIndex+1] = blockData[n+1];
-    destArray[destIndex+2] = blockData[n+2];
-    destArray[destIndex+3] = blockData[n+3];
-    destArray[destIndex+4] = blockData[n+4];
-    destArray[destIndex+5] = blockData[n+5];
-    destArray[destIndex+6] = blockData[n+6];
-    destArray[destIndex+7] = blockData[n+7];
-  }
+	for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
+		destArray[destIndex+0] = blockData[n+0];
+		destArray[destIndex+1] = blockData[n+1];
+		destArray[destIndex+2] = blockData[n+2];
+		destArray[destIndex+3] = blockData[n+3];
+		destArray[destIndex+4] = blockData[n+4];
+		destArray[destIndex+5] = blockData[n+5];
+		destArray[destIndex+6] = blockData[n+6];
+		destArray[destIndex+7] = blockData[n+7];
+	}
 };
 
 jsmpeg.prototype.addBlockToDestination = function(_blockData, _destArray, _destIndex, scan) {
-  var blockData = _blockData;
-  var destArray = _destArray;
-  var destIndex = _destIndex;
+	var blockData = _blockData;
+	var destArray = _destArray;
+	var destIndex = _destIndex;
 
-  for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
-    destArray[destIndex+0] += blockData[n+0];
-    destArray[destIndex+1] += blockData[n+1];
-    destArray[destIndex+2] += blockData[n+2];
-    destArray[destIndex+3] += blockData[n+3];
-    destArray[destIndex+4] += blockData[n+4];
-    destArray[destIndex+5] += blockData[n+5];
-    destArray[destIndex+6] += blockData[n+6];
-    destArray[destIndex+7] += blockData[n+7];
-  }
+	for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
+		destArray[destIndex+0] += blockData[n+0];
+		destArray[destIndex+1] += blockData[n+1];
+		destArray[destIndex+2] += blockData[n+2];
+		destArray[destIndex+3] += blockData[n+3];
+		destArray[destIndex+4] += blockData[n+4];
+		destArray[destIndex+5] += blockData[n+5];
+		destArray[destIndex+6] += blockData[n+6];
+		destArray[destIndex+7] += blockData[n+7];
+	}
 };
 
 jsmpeg.prototype.copyValueToDestination = function(value, _destArray, _destIndex, scan) {
-  var destArray = _destArray;
-  var destIndex = _destIndex;
+	var destArray = _destArray;
+	var destIndex = _destIndex;
 
-  for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
-    destArray[destIndex+0] = value;
-    destArray[destIndex+1] = value;
-    destArray[destIndex+2] = value;
-    destArray[destIndex+3] = value;
-    destArray[destIndex+4] = value;
-    destArray[destIndex+5] = value;
-    destArray[destIndex+6] = value;
-    destArray[destIndex+7] = value;
-  }
+	for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
+		destArray[destIndex+0] = value;
+		destArray[destIndex+1] = value;
+		destArray[destIndex+2] = value;
+		destArray[destIndex+3] = value;
+		destArray[destIndex+4] = value;
+		destArray[destIndex+5] = value;
+		destArray[destIndex+6] = value;
+		destArray[destIndex+7] = value;
+	}
 };
 
 jsmpeg.prototype.addValueToDestination = function(value, _destArray, _destIndex, scan) {
-  var destArray = _destArray;
-  var destIndex = _destIndex;
+	var destArray = _destArray;
+	var destIndex = _destIndex;
 
-  for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
-    destArray[destIndex+0] += value;
-    destArray[destIndex+1] += value;
-    destArray[destIndex+2] += value;
-    destArray[destIndex+3] += value;
-    destArray[destIndex+4] += value;
-    destArray[destIndex+5] += value;
-    destArray[destIndex+6] += value;
-    destArray[destIndex+7] += value;
-  }
+	for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
+		destArray[destIndex+0] += value;
+		destArray[destIndex+1] += value;
+		destArray[destIndex+2] += value;
+		destArray[destIndex+3] += value;
+		destArray[destIndex+4] += value;
+		destArray[destIndex+5] += value;
+		destArray[destIndex+6] += value;
+		destArray[destIndex+7] += value;
+	}
 };
 
 // Clamping version for shitty browsers (IE) that don't support Uint8ClampedArray
