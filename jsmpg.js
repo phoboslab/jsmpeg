@@ -38,6 +38,8 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 	this.customIntraQuantMatrix = new Uint8Array(64);
 	this.customNonIntraQuantMatrix = new Uint8Array(64);
 	this.blockData = new Int32Array(64);
+	this.zeroBlockData = new Int32Array(64);
+	this.fillArray(this.zeroBlockData, 0);
 
 	this.canvasContext = this.canvas.getContext('2d');
 
@@ -693,30 +695,26 @@ jsmpeg.prototype.YCbCrToRGBA = function() {
 			b = (cb + ((cb * 198) >> 8)) - 227;
 			
 			// Line 1
-			y = pY[yIndex1++];
-			pRGBA[rgbaIndex1] = y + r;
-			pRGBA[rgbaIndex1+1] = y - g;
-			pRGBA[rgbaIndex1+2] = y + b;
-			rgbaIndex1 += 4;
-			
-			y = pY[yIndex1++];
-			pRGBA[rgbaIndex1] = y + r;
-			pRGBA[rgbaIndex1+1] = y - g;
-			pRGBA[rgbaIndex1+2] = y + b;
-			rgbaIndex1 += 4;
-			
+			var y1 = pY[yIndex1++];
+			var y2 = pY[yIndex1++];
+			pRGBA[rgbaIndex1]   = y1 + r;
+			pRGBA[rgbaIndex1+1] = y1 - g;
+			pRGBA[rgbaIndex1+2] = y1 + b;
+			pRGBA[rgbaIndex1+4] = y2 + r;
+			pRGBA[rgbaIndex1+5] = y2 - g;
+			pRGBA[rgbaIndex1+6] = y2 + b;
+			rgbaIndex1 += 8;
+
 			// Line 2
-			y = pY[yIndex2++];
-			pRGBA[rgbaIndex2] = y + r;
-			pRGBA[rgbaIndex2+1] = y - g;
-			pRGBA[rgbaIndex2+2] = y + b;
-			rgbaIndex2 += 4;
-			
-			y = pY[yIndex2++];
-			pRGBA[rgbaIndex2] = y + r;
-			pRGBA[rgbaIndex2+1] = y - g;
-			pRGBA[rgbaIndex2+2] = y + b;
-			rgbaIndex2 += 4;
+			var y3 = pY[yIndex2++];
+			var y4 = pY[yIndex2++];
+			pRGBA[rgbaIndex2]   = y3 + r;
+			pRGBA[rgbaIndex2+1] = y3 - g;
+			pRGBA[rgbaIndex2+2] = y3 + b;
+			pRGBA[rgbaIndex2+4] = y4 + r;
+			pRGBA[rgbaIndex2+5] = y4 - g;
+			pRGBA[rgbaIndex2+6] = y4 + b;
+			rgbaIndex2 += 8;
 		}
 		
 		yIndex1 += yNext2Lines;
@@ -1209,10 +1207,7 @@ jsmpeg.prototype.decodeBlock = function(block) {
 	var
 		n = 0,
 		quantMatrix;
-	
-	// Clear preverious data
-	this.fillArray(this.blockData, 0);
-	
+		
 	// Decode DC coefficient of intra-coded blocks
 	if( this.macroblockIntra ) {
 		var 
@@ -1322,15 +1317,6 @@ jsmpeg.prototype.decodeBlock = function(block) {
 		this.blockData[dezigZagged] = level * PREMULTIPLIER_MATRIX[dezigZagged];
 	};
 	
-	// Transform block data to the spatial domain
-	if( n == 1 ) {
-		// Only DC coeff., no IDCT needed
-		this.fillArray(this.blockData, (this.blockData[0] + 128) >> 8);
-	}
-	else {
-		this.IDCT();
-	}
-	
 	// Move block to its place
 	var
 		destArray,
@@ -1353,38 +1339,96 @@ jsmpeg.prototype.decodeBlock = function(block) {
 		scan = (this.codedWidth >> 1) - 8;
 		destIndex = ((this.mbRow * this.codedWidth) << 2) + (this.mbCol << 3);
 	}
-	
-	n = 0;
-	
-	var blockData = this.blockData;
+
 	if( this.macroblockIntra ) {
 		// Overwrite (no prediction)
-		this.copyBlockToDestination(this.blockData, destArray, destIndex, scan);
+		if (n == 1) {
+			this.copyValueToDestination((this.blockData[0] + 128) >> 8, destArray, destIndex, scan);
+			this.blockData[0] = 0;
+		} else {
+			this.IDCT();
+			this.copyBlockToDestination(this.blockData, destArray, destIndex, scan);
+			this.blockData.set(this.zeroBlockData);	
+		}
 	}
 	else {
 		// Add data to the predicted macroblock
-		this.addBlockToDestination(this.blockData, destArray, destIndex, scan);
+		if (n == 1) {
+			this.addValueToDestination((this.blockData[0] + 128) >> 8, destArray, destIndex, scan);
+			this.blockData[0] = 0;
+		} else {
+			this.IDCT();
+			this.addBlockToDestination(this.blockData, destArray, destIndex, scan);	
+			this.blockData.set(this.zeroBlockData);	
+		}
+	}
+	
+	n = 0;
+};
+
+jsmpeg.prototype.copyBlockToDestination = function(_blockData, _destArray, _destIndex, scan) {
+	var blockData = _blockData;
+	var destArray = _destArray;
+	var destIndex = _destIndex;
+
+	for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
+		destArray[destIndex+0] = blockData[n+0];
+		destArray[destIndex+1] = blockData[n+1];
+		destArray[destIndex+2] = blockData[n+2];
+		destArray[destIndex+3] = blockData[n+3];
+		destArray[destIndex+4] = blockData[n+4];
+		destArray[destIndex+5] = blockData[n+5];
+		destArray[destIndex+6] = blockData[n+6];
+		destArray[destIndex+7] = blockData[n+7];
 	}
 };
 
+jsmpeg.prototype.addBlockToDestination = function(_blockData, _destArray, _destIndex, scan) {
+	var blockData = _blockData;
+	var destArray = _destArray;
+	var destIndex = _destIndex;
 
-jsmpeg.prototype.copyBlockToDestination = function(blockData, destArray, destIndex, scan) {
-	var n = 0;
-	for( var i = 0; i < 8; i++ ) {
-		for( var j = 0; j < 8; j++ ) {
-			destArray[destIndex++] = blockData[n++];
-		}
-		destIndex += scan;
+	for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
+		destArray[destIndex+0] += blockData[n+0];
+		destArray[destIndex+1] += blockData[n+1];
+		destArray[destIndex+2] += blockData[n+2];
+		destArray[destIndex+3] += blockData[n+3];
+		destArray[destIndex+4] += blockData[n+4];
+		destArray[destIndex+5] += blockData[n+5];
+		destArray[destIndex+6] += blockData[n+6];
+		destArray[destIndex+7] += blockData[n+7];
 	}
 };
 
-jsmpeg.prototype.addBlockToDestination = function(blockData, destArray, destIndex, scan) {
-	var n = 0;
-	for( var i = 0; i < 8; i++ ) {
-		for( var j = 0; j < 8; j++ ) {
-			destArray[destIndex++] += blockData[n++];
-		}
-		destIndex += scan;
+jsmpeg.prototype.copyValueToDestination = function(value, _destArray, _destIndex, scan) {
+	var destArray = _destArray;
+	var destIndex = _destIndex;
+
+	for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
+		destArray[destIndex+0] = value;
+		destArray[destIndex+1] = value;
+		destArray[destIndex+2] = value;
+		destArray[destIndex+3] = value;
+		destArray[destIndex+4] = value;
+		destArray[destIndex+5] = value;
+		destArray[destIndex+6] = value;
+		destArray[destIndex+7] = value;
+	}
+};
+
+jsmpeg.prototype.addValueToDestination = function(value, _destArray, _destIndex, scan) {
+	var destArray = _destArray;
+	var destIndex = _destIndex;
+
+	for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
+		destArray[destIndex+0] += value;
+		destArray[destIndex+1] += value;
+		destArray[destIndex+2] += value;
+		destArray[destIndex+3] += value;
+		destArray[destIndex+4] += value;
+		destArray[destIndex+5] += value;
+		destArray[destIndex+6] += value;
+		destArray[destIndex+7] += value;
 	}
 };
 
