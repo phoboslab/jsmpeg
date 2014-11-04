@@ -306,7 +306,6 @@ jsmpeg.prototype.updateLoaderGL = function( ev ) {
 };
 	
 jsmpeg.prototype.loadCallback = function(file) {
-	var time = Date.now();
 	this.buffer = new BitReader(file);
 	
 	this.findStartCode(START_SEQUENCE);
@@ -327,7 +326,7 @@ jsmpeg.prototype.loadCallback = function(file) {
 
 jsmpeg.prototype.play = function(file) {
 	if( this.playing ) { return; }
-	this.targetTime = Date.now();
+	this.targetTime = this.now();
 	this.playing = true;
 	this.scheduleNextFrame();
 };
@@ -412,8 +411,20 @@ jsmpeg.prototype.lateTime = 0;
 jsmpeg.prototype.firstSequenceHeader = 0;
 jsmpeg.prototype.targetTime = 0;
 
+jsmpeg.prototype.benchmark = false;
+jsmpeg.prototype.benchFrame = 0;
+jsmpeg.prototype.benchDecodeTimes = 0;
+
+jsmpeg.prototype.now = function() {
+	return window.performance 
+		? window.performance.now() 
+		: Date.now();
+}
+
 jsmpeg.prototype.nextFrame = function() {
 	if( !this.buffer ) { return; }
+
+	var frameStart = this.now();
 	while(true) {
 		var code = this.buffer.findNextMPEGStartCode();
 		
@@ -425,6 +436,7 @@ jsmpeg.prototype.nextFrame = function() {
 				this.scheduleNextFrame();
 			}
 			this.decodePicture();
+			this.benchDecodeTimes += this.now() - frameStart;
 			return this.canvas;
 		}
 		else if( code == BitReader.NOT_FOUND ) {
@@ -447,24 +459,17 @@ jsmpeg.prototype.nextFrame = function() {
 };
 
 jsmpeg.prototype.scheduleNextFrame = function() {
-	this.lateTime = Date.now() - this.targetTime;
+	this.lateTime = this.now() - this.targetTime;
 	var wait = Math.max(0, (1000/this.pictureRate) - this.lateTime);
-	this.targetTime = Date.now() + wait;
+	this.targetTime = this.now() + wait;
 
 	if( this.benchmark ) {
-		var now = Date.now();
-		if(!this.benchframe) {
-			this.benchstart = now;
-			this.benchframe = 0;
-		}
-		this.benchframe++;
-		var timepassed = now - this.benchstart;
-		if( this.benchframe >= 100 ) {
-			this.benchfps = (this.benchframe / timepassed) * 1000;
-			if( console ) {
-				console.log("frames per second: " + this.benchfps);
-			}
-			this.benchframe = null;
+		this.benchFrame++;
+		if( this.benchFrame >= 120 ) {
+			var frameTime = this.benchDecodeTimes / this.benchFrame;
+			console.log("Average time per frame:", frameTime, 'ms');
+			this.benchFrame = 0;
+			this.benchDecodeTimes = 0;
 		}
 		setTimeout( this.nextFrame.bind(this), 0);
 	}
