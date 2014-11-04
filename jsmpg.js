@@ -520,23 +520,23 @@ jsmpeg.prototype.initBuffers = function() {
 	}
 	
 	// Allocated buffers and resize the canvas
-	this.currentY = new MaybeClampedUint8Array(this.codedSize);
+	this.currentY = new Uint8Array(this.codedSize);
 	this.currentY32 = new Uint32Array(this.currentY.buffer);
 
-	this.currentCr = new MaybeClampedUint8Array(this.codedSize >> 2);
+	this.currentCr = new Uint8Array(this.codedSize >> 2);
 	this.currentCr32 = new Uint32Array(this.currentCr.buffer);
 
-	this.currentCb = new MaybeClampedUint8Array(this.codedSize >> 2);
+	this.currentCb = new Uint8Array(this.codedSize >> 2);
 	this.currentCb32 = new Uint32Array(this.currentCb.buffer);
 	
 
-	this.forwardY = new MaybeClampedUint8Array(this.codedSize);
+	this.forwardY = new Uint8Array(this.codedSize);
 	this.forwardY32 = new Uint32Array(this.forwardY.buffer);
 
-	this.forwardCr = new MaybeClampedUint8Array(this.codedSize >> 2);
+	this.forwardCr = new Uint8Array(this.codedSize >> 2);
 	this.forwardCr32 = new Uint32Array(this.forwardCr.buffer);
 
-	this.forwardCb = new MaybeClampedUint8Array(this.codedSize >> 2);
+	this.forwardCb = new Uint8Array(this.codedSize >> 2);
 	this.forwardCb32 = new Uint32Array(this.forwardCb.buffer);
 	
 	this.canvas.width = this.width;
