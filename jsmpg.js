@@ -564,7 +564,7 @@ jsmpeg.prototype.initBuffers = function() {
 	
 	if( this.gl ) {
 		this.gl.useProgram(this.program);
-    	this.gl.viewport(0, 0, this.width, this.height);
+		this.gl.viewport(0, 0, this.width, this.height);
 
 		// WebGL doesn't like Uint8ClampedArrays, so we have to create a 
 		// Uint8Array view for each plane
@@ -1470,12 +1470,8 @@ jsmpeg.prototype.decodeBlock = function(block) {
 	n = 0;
 };
 
-jsmpeg.prototype.copyBlockToDestination = function(_blockData, _destArray, _destIndex, scan) {
-	var blockData = _blockData;
-	var destArray = _destArray;
-	var destIndex = _destIndex;
-
-	for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
+jsmpeg.prototype.copyBlockToDestination = function(blockData, destArray, destIndex, scan) {
+	for( var n = 0; n < 64; n += 8, destIndex += scan+8 ) {
 		destArray[destIndex+0] = blockData[n+0];
 		destArray[destIndex+1] = blockData[n+1];
 		destArray[destIndex+2] = blockData[n+2];
@@ -1487,12 +1483,8 @@ jsmpeg.prototype.copyBlockToDestination = function(_blockData, _destArray, _dest
 	}
 };
 
-jsmpeg.prototype.addBlockToDestination = function(_blockData, _destArray, _destIndex, scan) {
-	var blockData = _blockData;
-	var destArray = _destArray;
-	var destIndex = _destIndex;
-
-	for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
+jsmpeg.prototype.addBlockToDestination = function(blockData, destArray, destIndex, scan) {
+	for( var n = 0; n < 64; n += 8, destIndex += scan+8 ) {
 		destArray[destIndex+0] += blockData[n+0];
 		destArray[destIndex+1] += blockData[n+1];
 		destArray[destIndex+2] += blockData[n+2];
@@ -1504,11 +1496,8 @@ jsmpeg.prototype.addBlockToDestination = function(_blockData, _destArray, _destI
 	}
 };
 
-jsmpeg.prototype.copyValueToDestination = function(value, _destArray, _destIndex, scan) {
-	var destArray = _destArray;
-	var destIndex = _destIndex;
-
-	for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
+jsmpeg.prototype.copyValueToDestination = function(value, destArray, destIndex, scan) {
+	for( var n = 0; n < 64; n += 8, destIndex += scan+8 ) {
 		destArray[destIndex+0] = value;
 		destArray[destIndex+1] = value;
 		destArray[destIndex+2] = value;
@@ -1520,11 +1509,8 @@ jsmpeg.prototype.copyValueToDestination = function(value, _destArray, _destIndex
 	}
 };
 
-jsmpeg.prototype.addValueToDestination = function(value, _destArray, _destIndex, scan) {
-	var destArray = _destArray;
-	var destIndex = _destIndex;
-
-	for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
+jsmpeg.prototype.addValueToDestination = function(value, destArray, destIndex, scan) {
+	for( var n = 0; n < 64; n += 8, destIndex += scan+8 ) {
 		destArray[destIndex+0] += value;
 		destArray[destIndex+1] += value;
 		destArray[destIndex+2] += value;
