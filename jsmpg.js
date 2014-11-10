@@ -564,6 +564,7 @@ jsmpeg.prototype.initBuffers = function() {
 	
 	if( this.gl ) {
 		this.gl.useProgram(this.program);
+    	this.gl.viewport(0, 0, this.width, this.height);
 
 		// WebGL doesn't like Uint8ClampedArrays, so we have to create a 
 		// Uint8Array view for each plane
