@@ -2304,7 +2304,7 @@ var
 
 	// Shaders for accelerated WebGL YCbCrToRGBA conversion
 	SHADER_FRAGMENT_YCBCRTORGBA = [
-		'precision highp float;',
+		'precision mediump float;',
 		'uniform sampler2D YTexture;',
 		'uniform sampler2D CBTexture;',
 		'uniform sampler2D CRTexture;',
@@ -2325,7 +2325,7 @@ var
 	].join('\n'),
 
 	SHADER_FRAGMENT_LOADING = [
-		'precision highp float;',
+		'precision mediump float;',
 		'uniform float loaded;',
 		'varying vec2 texCoord;',
 
