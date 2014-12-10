@@ -565,12 +565,6 @@ jsmpeg.prototype.initBuffers = function() {
 	if( this.gl ) {
 		this.gl.useProgram(this.program);
 		this.gl.viewport(0, 0, this.width, this.height);
-
-		// WebGL doesn't like Uint8ClampedArrays, so we have to create a 
-		// Uint8Array view for each plane
-		this.currentYUint8 = new Uint8Array(this.currentY.buffer),
-		this.currentCrUint8 = new Uint8Array(this.currentCr.buffer),
-		this.currentCbUint8 = new Uint8Array(this.currentCb.buffer);
 	}
 	else {
 		this.currentRGBA = this.canvasContext.getImageData(0, 0, this.width, this.height);
@@ -844,19 +838,25 @@ jsmpeg.prototype.initWebGL = function() {
 
 jsmpeg.prototype.renderFrameGL = function() {
 	var gl = this.gl;
+
+	// WebGL doesn't like Uint8ClampedArrays, so we have to create a Uint8Array view for 
+	// each plane
+	var uint8Y = new Uint8Array(this.currentY.buffer),
+		uint8Cr = new Uint8Array(this.currentCr.buffer),
+		uint8Cb = new Uint8Array(this.currentCb.buffer);
 	
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, this.YTexture);
 
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, this.codedWidth, this.height, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, this.currentYUint8);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, this.codedWidth, this.height, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, uint8Y);
 	
 	gl.activeTexture(gl.TEXTURE1);
 	gl.bindTexture(gl.TEXTURE_2D, this.CBTexture);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, this.halfWidth, this.height/2, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, this.currentCrUint8);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, this.halfWidth, this.height/2, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, uint8Cr);
 	
 	gl.activeTexture(gl.TEXTURE2);
 	gl.bindTexture(gl.TEXTURE_2D, this.CRTexture);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, this.halfWidth, this.height/2, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, this.currentCbUint8);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, this.halfWidth, this.height/2, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, uint8Cb);
 	
 	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 };
