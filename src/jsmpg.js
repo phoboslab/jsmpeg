@@ -30,6 +30,11 @@ var jsmpeg = function(opts) {
     this.renderFrame = this.renderFrame2D;
   }
 
+  this.pictureRate = 30;
+  this.lateTime = 0;
+  this.firstSequenceHeader = 0;
+  this.targetTime = 0;
+
   // this.load(url);
 };
 
@@ -88,16 +93,7 @@ jsmpeg.prototype.stop = function() {
 	this.buffer.index = this.firstSequenceHeader;
   }
   this.playing = false;
-  if( this.client ) {
-	this.client.close();
-	this.client = null;
-  }
 };
-
-jsmpeg.prototype.pictureRate = 30;
-jsmpeg.prototype.lateTime = 0;
-jsmpeg.prototype.firstSequenceHeader = 0;
-jsmpeg.prototype.targetTime = 0;
 
 jsmpeg.prototype.now = function() {
   return window.performance
@@ -109,19 +105,19 @@ jsmpeg.prototype.nextFrame = function() {
   if( !this.buffer ) { return; }
 
   var frameStart = this.now();
-  while(true) {
+  while (true) {
 	var code = this.buffer.findNextMPEGStartCode();
 
 	if( code == START_SEQUENCE ) {
 	  this.decodeSequenceHeader();
-	} else if( code == START_PICTURE ) {
+	} else if ( code == START_PICTURE ) {
 	  if( this.playing ) {
 		this.scheduleNextFrame();
 	  }
 	  this.decodePicture();
 	  this.benchDecodeTimes += this.now() - frameStart;
       return;
-	} else if( code == BitReader.NOT_FOUND ) {
+	} else if ( code == BitReader.NOT_FOUND ) {
 	  this.stop(); // Jump back to the beginning
 
 	  if( this.externalFinishedCallback ) {
