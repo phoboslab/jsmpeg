@@ -5,11 +5,11 @@ var source = require('vinyl-source-stream');
 
 gulp.task('scripts', function() {
   browserify({
-    entries: ['./src/jsmpg.js'],
+    entries: ['./src/jsmpeg.js'],
     standalone: 'jsmpeg'
   })
     .bundle()
-    .pipe(source('jsmpg.js'))
+    .pipe(source('jsmpeg.js'))
     .pipe(gulp.dest('./'))
   ;
 });

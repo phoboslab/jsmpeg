@@ -1,3 +1,4 @@
+var VideoLoader = require('./VideoLoader.js');
 var BitReader = require('./BitReader.js');
 var Decoder = require('./Decoder.js');
 
@@ -10,14 +11,20 @@ var requestAnimFrame = (function(){
     };
 })();
 
-var jsmpeg = module.exports = function(opts) {
+var jsmpeg = module.exports = function(urls, opts) {
+  this.videoIndex = 0;
+  urls = Array.isArray(urls) ? urls : [urls];
+  this.videoLoader = new VideoLoader(urls, (function() {
+    this.loadBuffer(this.videoLoader.videos[this.videoIndex]);
+    this.videoIndex++;
+    this.play();
+  }.bind(this)));
+  this.videoLoader.load();
+
   opts = opts || {};
   this.canvas = opts.canvas || document.createElement('canvas');
   this.autoplay = !!opts.autoplay;
   this.loop = !!opts.loop;
-  this.externalLoadCallback = opts.onload || null;
-  this.externalDecodeCallback = opts.ondecodeframe || null;
-  this.externalFinishedCallback = opts.onfinished || null;
 
   this.pictureRate = 30;
   this.lateTime = 0;
@@ -57,10 +64,6 @@ jsmpeg.prototype.loadBuffer = function(buffer) {
 
   if( this.autoplay ) {
     this.play();
-  }
-
-  if( this.externalLoadCallback ) {
-    this.externalLoadCallback(this);
   }
 };
 
@@ -107,16 +110,17 @@ jsmpeg.prototype.nextFrame = function() {
       return;
     } else if ( code == BitReader.NOT_FOUND ) {
       this.stop(); // Jump back to the beginning
-
-      if( this.externalFinishedCallback ) {
-        this.externalFinishedCallback(this);
-      }
-
-      // Only loop if we found a sequence header
-      if( this.loop && this.sequenceStarted ) {
+      if (this.videoIndex < this.videoLoader.videos.length ) {
+        this.loadBuffer(this.videoLoader.videos[this.videoIndex]);
+        this.videoIndex++;
         this.play();
+      } else {
+        // Only loop if we found a sequence header
+        if( this.loop && this.sequenceStarted ) {
+          this.play();
+        }
+        return;
       }
-      return;
     } else {
       // ignore (GROUP, USER_DATA, EXTENSION, SLICES...)
     }
