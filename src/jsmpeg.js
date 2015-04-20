@@ -116,10 +116,13 @@ jsmpeg.prototype.nextFrame = function() {
         this.play();
       } else {
         // Only loop if we found a sequence header
-        if( this.loop && this.sequenceStarted ) {
+        if( this.loop ) {
+          this.videoIndex = 0;
+          this.loadBuffer(this.videoLoader.videos[this.videoIndex]);
           this.play();
+        } else {
+          return;
         }
-        return;
       }
     } else {
       // ignore (GROUP, USER_DATA, EXTENSION, SLICES...)
