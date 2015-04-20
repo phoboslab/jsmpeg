@@ -30,14 +30,7 @@ var jsmpeg = function(opts) {
     this.renderFrame = this.renderFrame2D;
   }
 
-  /*
-  if( url instanceof WebSocket ) {
-    this.client = url;
-    this.client.onopen = this.initSocketClient.bind(this);
-  } else {
-    this.load(url);
-  }
-   */
+  // this.load(url);
 };
 
 jsmpeg.prototype.scheduleDecoding = function() {
