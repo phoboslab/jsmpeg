@@ -141,7 +141,7 @@ jsmpeg.prototype.nextFrame = function() {
 	  }
 	  this.decodePicture();
 	  this.benchDecodeTimes += this.now() - frameStart;
-	  return this.canvas;
+      return;
 	} else if( code == BitReader.NOT_FOUND ) {
 	  this.stop(); // Jump back to the beginning
 
@@ -153,12 +153,11 @@ jsmpeg.prototype.nextFrame = function() {
 	  if( this.loop && this.sequenceStarted ) {
 		this.play();
 	  }
-	  return null;
+	  return;
 	} else {
 	  // ignore (GROUP, USER_DATA, EXTENSION, SLICES...)
 	}
   }
-  return null;
 };
 
 jsmpeg.prototype.scheduleNextFrame = function() {

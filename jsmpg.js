@@ -45,6 +45,7 @@ jsmpeg.prototype.scheduleDecoding = function() {
   this.decodePicture();
 };
 
+
 jsmpeg.prototype.load = function( url ) {
   this.url = url;
 
@@ -56,9 +57,11 @@ jsmpeg.prototype.load = function( url ) {
 	}
   };
 
+  /*
   request.onprogress = this.gl
     ? this.updateLoaderGL.bind(this)
     : this.updateLoader2D.bind(this);
+   */
 
   request.open('GET', url);
   request.responseType = "arraybuffer";
@@ -138,7 +141,8 @@ jsmpeg.prototype.nextFrame = function() {
 	  }
 	  this.decodePicture();
 	  this.benchDecodeTimes += this.now() - frameStart;
-	  return this.canvas;
+	  // return this.canvas;
+      return;
 	} else if( code == BitReader.NOT_FOUND ) {
 	  this.stop(); // Jump back to the beginning
 
