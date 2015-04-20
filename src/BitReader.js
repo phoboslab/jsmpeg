@@ -1,7 +1,4 @@
-// ----------------------------------------------------------------------------
-// Bit Reader
-
-var BitReader = function(arrayBuffer) {
+var BitReader = module.exports = function(arrayBuffer) {
   this.bytes = new Uint8Array(arrayBuffer);
   this.length = this.bytes.length;
   this.writePos = this.bytes.length;

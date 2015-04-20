@@ -1,7 +1,66 @@
-// ----------------------------------------------------------------------------
-// Sequence Layer
+var BitReader = require('./BitReader.js');
 
-jsmpeg.prototype.decodeSequenceHeader = function() {
+var Decoder = module.exports = function(canvas) {
+  this.canvas = canvas;
+  /*
+  // use WebGL for YCbCrToRGBA conversion if possible (much faster)
+  if( !opts.forceCanvas2D && this.initWebGL() ) {
+    this.renderFrame = this.renderFrameGL;
+  } else {
+    this.canvasContext = this.canvas.getContext('2d');
+    this.renderFrame = this.renderFrame2D;
+  }
+   */
+  this.canvasContext = this.canvas.getContext('2d');
+  this.renderFrame = this.renderFrame2D;
+
+  this.customIntraQuantMatrix = new Uint8Array(64);
+  this.customNonIntraQuantMatrix = new Uint8Array(64);
+  this.blockData = new Int32Array(64);
+  this.zeroBlockData = new Int32Array(64);
+  this.fillArray(this.zeroBlockData, 0);
+
+  // this.currentY = null;
+  // this.currentCr = null;
+  // this.currentCb = null;
+  this.pictureCodingType = 0;
+
+  // this.forwardY = null;
+  // this.forwardCr = null;
+  // this.forwardCb = null;
+
+  this.fullPelForward = false;
+  this.forwardFCode = 0;
+  this.forwardRSize = 0;
+  this.forwardF = 0;
+
+  this.quantizerScale = 0;
+  this.sliceBegin = false;
+
+  this.macroblockAddress = 0;
+  this.mbRow = 0;
+  this.mbCol = 0;
+
+  this.macroblockType = 0;
+  this.macroblockIntra = false;
+  this.macroblockMotFw = false;
+
+  this.motionFwH = 0;
+  this.motionFwV = 0;
+  this.motionFwHPrev = 0;
+  this.motionFwVPrev = 0;
+
+  // this.dcPredictorY = null;
+  // this.dcPredictorCr = null;
+  // this.dcPredictorCb = null;
+};
+
+Decoder.prototype.renderFrame2D = function() {
+  this.YCbCrToRGBA();
+  this.canvasContext.putImageData(this.currentRGBA, 0, 0);
+};
+
+Decoder.prototype.decodeSequenceHeader = function() {
   this.width = this.buffer.getBits(12);
   this.height = this.buffer.getBits(12);
   this.buffer.advance(4); // skip pixel aspect ratio
@@ -25,7 +84,7 @@ jsmpeg.prototype.decodeSequenceHeader = function() {
   }
 };
 
-jsmpeg.prototype.initBuffers = function() {
+Decoder.prototype.initBuffers = function() {
   this.intraQuantMatrix = DEFAULT_INTRA_QUANT_MATRIX;
   this.nonIntraQuantMatrix = DEFAULT_NON_INTRA_QUANT_MATRIX;
 
@@ -77,40 +136,33 @@ jsmpeg.prototype.initBuffers = function() {
   this.canvas.width = this.width;
   this.canvas.height = this.height;
 
+  /*
   if( this.gl ) {
-	this.gl.useProgram(this.program);
-	this.gl.viewport(0, 0, this.width, this.height);
+    this.gl.useProgram(this.program);
+    this.gl.viewport(0, 0, this.width, this.height);
   }
   else {
-	this.currentRGBA = this.canvasContext.getImageData(0, 0, this.width, this.height);
-	this.fillArray(this.currentRGBA.data, 255);
+    this.currentRGBA = this.canvasContext.getImageData(0, 0, this.width, this.height);
+    this.fillArray(this.currentRGBA.data, 255);
   }
+   */
+  this.currentRGBA = this.canvasContext.getImageData(0, 0, this.width, this.height);
+  this.fillArray(this.currentRGBA.data, 255);
 };
 
+Decoder.prototype.loadBuffer = function(buffer) {
+  this.buffer = new BitReader(buffer);
 
-// ----------------------------------------------------------------------------
-// Picture Layer
+  this.findStartCode(START_SEQUENCE);
+  this.firstSequenceHeader = this.buffer.index;
+  this.decodeSequenceHeader();
+};
 
-jsmpeg.prototype.currentY = null;
-jsmpeg.prototype.currentCr = null;
-jsmpeg.prototype.currentCb = null;
+Decoder.prototype.getStartCode = function() {
+	return this.buffer.findNextMPEGStartCode();
+};
 
-jsmpeg.prototype.currentRGBA = null;
-
-jsmpeg.prototype.pictureCodingType = 0;
-
-// Buffers for motion compensation
-jsmpeg.prototype.forwardY = null;
-jsmpeg.prototype.forwardCr = null;
-jsmpeg.prototype.forwardCb = null;
-
-jsmpeg.prototype.fullPelForward = false;
-jsmpeg.prototype.forwardFCode = 0;
-jsmpeg.prototype.forwardRSize = 0;
-jsmpeg.prototype.forwardF = 0;
-
-
-jsmpeg.prototype.decodePicture = function(skipOutput) {
+Decoder.prototype.decodePicture = function(skipOutput) {
   this.buffer.advance(10); // skip temporalReference
   this.pictureCodingType = this.buffer.getBits(3);
   this.buffer.advance(16); // skip vbv_delay
@@ -146,10 +198,6 @@ jsmpeg.prototype.decodePicture = function(skipOutput) {
   // We found the next start code; rewind 32bits and let the main loop handle it.
   this.buffer.rewind(32);
 
-  // Record this frame, if the recorder wants it
-  // this.recordFrameFromCurrentBuffer();
-
-
   if( skipOutput != DECODE_SKIP_OUTPUT ) {
 	this.renderFrame();
 
@@ -184,7 +232,7 @@ jsmpeg.prototype.decodePicture = function(skipOutput) {
   }
 };
 
-jsmpeg.prototype.YCbCrToRGBA = function() {
+Decoder.prototype.YCbCrToRGBA = function() {
   var pY = this.currentY;
   var pCb = this.currentCb;
   var pCr = this.currentCr;
@@ -254,13 +302,7 @@ jsmpeg.prototype.YCbCrToRGBA = function() {
 };
 
 
-// ----------------------------------------------------------------------------
-// Slice Layer
-
-jsmpeg.prototype.quantizerScale = 0;
-jsmpeg.prototype.sliceBegin = false;
-
-jsmpeg.prototype.decodeSlice = function(slice) {
+Decoder.prototype.decodeSlice = function(slice) {
   this.sliceBegin = true;
   this.macroblockAddress = (slice - 1) * this.mbWidth - 1;
 
@@ -282,26 +324,9 @@ jsmpeg.prototype.decodeSlice = function(slice) {
 	this.decodeMacroblock();
 	// We may have to ignore Video Stream Start Codes here (0xE0)!?
   } while( !this.buffer.nextBytesAreStartCode() );
-}
+};
 
-
-// ----------------------------------------------------------------------------
-// Macroblock Layer
-
-jsmpeg.prototype.macroblockAddress = 0;
-jsmpeg.prototype.mbRow = 0;
-jsmpeg.prototype.mbCol = 0;
-
-jsmpeg.prototype.macroblockType = 0;
-jsmpeg.prototype.macroblockIntra = false;
-jsmpeg.prototype.macroblockMotFw = false;
-
-jsmpeg.prototype.motionFwH = 0;
-jsmpeg.prototype.motionFwV = 0;
-jsmpeg.prototype.motionFwHPrev = 0;
-jsmpeg.prototype.motionFwVPrev = 0;
-
-jsmpeg.prototype.decodeMacroblock = function() {
+Decoder.prototype.decodeMacroblock = function() {
   // Decode macroblock_address_increment
   var
   increment = 0,
@@ -395,7 +420,7 @@ jsmpeg.prototype.decodeMacroblock = function() {
 };
 
 
-jsmpeg.prototype.decodeMotionVectors = function() {
+Decoder.prototype.decodeMotionVectors = function() {
   var code, d, r = 0;
 
   // Forward
@@ -459,7 +484,7 @@ jsmpeg.prototype.decodeMotionVectors = function() {
   }
 };
 
-jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
+Decoder.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
   var
   width, scan,
   H, V, oddH, oddV,
@@ -689,17 +714,7 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
   }
 };
 
-
-// ----------------------------------------------------------------------------
-// Block layer
-
-jsmpeg.prototype.dcPredictorY;
-jsmpeg.prototype.dcPredictorCr;
-jsmpeg.prototype.dcPredictorCb;
-
-jsmpeg.prototype.blockData = null;
-jsmpeg.prototype.decodeBlock = function(block) {
-
+Decoder.prototype.decodeBlock = function(block) {
   var
   n = 0,
   quantMatrix;
@@ -862,7 +877,7 @@ jsmpeg.prototype.decodeBlock = function(block) {
   n = 0;
 };
 
-jsmpeg.prototype.copyBlockToDestination = function(blockData, destArray, destIndex, scan) {
+Decoder.prototype.copyBlockToDestination = function(blockData, destArray, destIndex, scan) {
   for( var n = 0; n < 64; n += 8, destIndex += scan+8 ) {
 	destArray[destIndex+0] = blockData[n+0];
 	destArray[destIndex+1] = blockData[n+1];
@@ -875,7 +890,7 @@ jsmpeg.prototype.copyBlockToDestination = function(blockData, destArray, destInd
   }
 };
 
-jsmpeg.prototype.addBlockToDestination = function(blockData, destArray, destIndex, scan) {
+Decoder.prototype.addBlockToDestination = function(blockData, destArray, destIndex, scan) {
   for( var n = 0; n < 64; n += 8, destIndex += scan+8 ) {
 	destArray[destIndex+0] += blockData[n+0];
 	destArray[destIndex+1] += blockData[n+1];
@@ -888,7 +903,7 @@ jsmpeg.prototype.addBlockToDestination = function(blockData, destArray, destInde
   }
 };
 
-jsmpeg.prototype.copyValueToDestination = function(value, destArray, destIndex, scan) {
+Decoder.prototype.copyValueToDestination = function(value, destArray, destIndex, scan) {
   for( var n = 0; n < 64; n += 8, destIndex += scan+8 ) {
 	destArray[destIndex+0] = value;
 	destArray[destIndex+1] = value;
@@ -901,7 +916,7 @@ jsmpeg.prototype.copyValueToDestination = function(value, destArray, destIndex, 
   }
 };
 
-jsmpeg.prototype.addValueToDestination = function(value, destArray, destIndex, scan) {
+Decoder.prototype.addValueToDestination = function(value, destArray, destIndex, scan) {
   for( var n = 0; n < 64; n += 8, destIndex += scan+8 ) {
 	destArray[destIndex+0] += value;
 	destArray[destIndex+1] += value;
@@ -915,7 +930,7 @@ jsmpeg.prototype.addValueToDestination = function(value, destArray, destIndex, s
 };
 
 // Clamping version for shitty browsers (IE) that don't support Uint8ClampedArray
-jsmpeg.prototype.copyBlockToDestinationClamp = function(blockData, destArray, destIndex, scan) {
+Decoder.prototype.copyBlockToDestinationClamp = function(blockData, destArray, destIndex, scan) {
   var n = 0;
   for( var i = 0; i < 8; i++ ) {
 	for( var j = 0; j < 8; j++ ) {
@@ -926,7 +941,7 @@ jsmpeg.prototype.copyBlockToDestinationClamp = function(blockData, destArray, de
   }
 };
 
-jsmpeg.prototype.addBlockToDestinationClamp = function(blockData, destArray, destIndex, scan) {
+Decoder.prototype.addBlockToDestinationClamp = function(blockData, destArray, destIndex, scan) {
   var n = 0;
   for( var i = 0; i < 8; i++ ) {
 	for( var j = 0; j < 8; j++ ) {
@@ -937,7 +952,7 @@ jsmpeg.prototype.addBlockToDestinationClamp = function(blockData, destArray, des
   }
 };
 
-jsmpeg.prototype.IDCT = function() {
+Decoder.prototype.IDCT = function() {
   // See http://vsr.informatik.tu-chemnitz.de/~jan/MPEG/HTML/IDCT.html
   // for more info.
 
@@ -1008,9 +1023,56 @@ jsmpeg.prototype.IDCT = function() {
   }
 };
 
+Decoder.prototype.readCode = function(codeTable) {
+  var state = 0;
+  do {
+	state = codeTable[state + this.buffer.getBits(1)];
+  } while( state >= 0 && codeTable[state] != 0 );
+  return codeTable[state+2];
+};
 
-// ----------------------------------------------------------------------------
-// VLC Tables and Constants
+Decoder.prototype.findStartCode = function( code ) {
+  var current = 0;
+  while( true ) {
+	current = this.buffer.findNextMPEGStartCode();
+	if( current == code || current == BitReader.NOT_FOUND ) {
+	  return current;
+	}
+  }
+  return BitReader.NOT_FOUND;
+};
+
+Decoder.prototype.fillArray = function(a, value) {
+  for( var i = 0, length = a.length; i < length; i++ ) {
+	a[i] = value;
+  }
+};
+
+Decoder.prototype.cachedFrameCount = 0;
+Decoder.prototype.calculateFrameCount = function() {
+  if( !this.buffer || this.cachedFrameCount ) {
+	return this.cachedFrameCount;
+  }
+
+  // Remember the buffer position, so we can rewind to the beginning and
+  // reset to the current position afterwards
+  var currentPlaybackIndex = this.buffer.index,
+	  frames = 0;
+
+  this.buffer.index = 0;
+  while( this.findStartCode(START_PICTURE) !== BitReader.NOT_FOUND ) {
+	frames++;
+  }
+  this.buffer.index = currentPlaybackIndex;
+
+  this.cachedFrameCount = frames;
+  return frames;
+};
+
+Decoder.prototype.calculateDuration = function() {
+  return this.calculateFrameCount() * (1/this.pictureRate);
+};
+
 
 var
 SOCKET_MAGIC_BYTES = 'jsmp',

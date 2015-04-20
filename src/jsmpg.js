@@ -1,3 +1,6 @@
+var BitReader = require('./BitReader.js');
+var Decoder = require('./Decoder.js');
+
 var requestAnimFrame = (function(){
   return window.requestAnimationFrame ||
 	window.webkitRequestAnimationFrame ||
@@ -7,7 +10,7 @@ var requestAnimFrame = (function(){
 	};
 })();
 
-var jsmpeg = function(opts) {
+var jsmpeg = module.exports = function(opts) {
   opts = opts || {};
   this.canvas = opts.canvas || document.createElement('canvas');
   this.autoplay = !!opts.autoplay;
@@ -16,32 +19,19 @@ var jsmpeg = function(opts) {
   this.externalDecodeCallback = opts.ondecodeframe || null;
   this.externalFinishedCallback = opts.onfinished || null;
 
-  this.customIntraQuantMatrix = new Uint8Array(64);
-  this.customNonIntraQuantMatrix = new Uint8Array(64);
-  this.blockData = new Int32Array(64);
-  this.zeroBlockData = new Int32Array(64);
-  this.fillArray(this.zeroBlockData, 0);
-
-  // use WebGL for YCbCrToRGBA conversion if possible (much faster)
-  if( !opts.forceCanvas2D && this.initWebGL() ) {
-    this.renderFrame = this.renderFrameGL;
-  } else {
-    this.canvasContext = this.canvas.getContext('2d');
-    this.renderFrame = this.renderFrame2D;
-  }
-
   this.pictureRate = 30;
   this.lateTime = 0;
   this.firstSequenceHeader = 0;
   this.targetTime = 0;
 
-  // this.load(url);
+  this.decoder = new Decoder(this.canvas);
 };
 
 jsmpeg.prototype.scheduleDecoding = function() {
-  this.decodePicture();
+  this.decoder.decodePicture();
 };
 
+/*
 jsmpeg.prototype.load = function( url ) {
   this.url = url;
 
@@ -57,13 +47,10 @@ jsmpeg.prototype.load = function( url ) {
   request.responseType = "arraybuffer";
   request.send();
 };
+*/
 
 jsmpeg.prototype.loadBuffer = function(buffer) {
-  this.buffer = new BitReader(buffer);
-
-  this.findStartCode(START_SEQUENCE);
-  this.firstSequenceHeader = this.buffer.index;
-  this.decodeSequenceHeader();
+  this.decoder.loadBuffer(buffer);
 
   // Load the first frame
   this.nextFrame();
@@ -102,20 +89,21 @@ jsmpeg.prototype.now = function() {
 };
 
 jsmpeg.prototype.nextFrame = function() {
-  if( !this.buffer ) { return; }
+  // if( !this.buffer ) { return; }
+  if (!this.decoder.buffer) {
+    return;
+  }
 
-  var frameStart = this.now();
   while (true) {
-	var code = this.buffer.findNextMPEGStartCode();
+    var code = this.decoder.getStartCode();
 
-	if( code == START_SEQUENCE ) {
-	  this.decodeSequenceHeader();
-	} else if ( code == START_PICTURE ) {
+	if( code == 0xB3 /* START_SEQUENCE */ ) {
+	  this.decoder.decodeSequenceHeader();
+	} else if ( code == 0x00 /* START_PICTURE */ ) {
 	  if( this.playing ) {
 		this.scheduleNextFrame();
 	  }
-	  this.decodePicture();
-	  this.benchDecodeTimes += this.now() - frameStart;
+	  this.decoder.decodePicture();
       return;
 	} else if ( code == BitReader.NOT_FOUND ) {
 	  this.stop(); // Jump back to the beginning
@@ -149,9 +137,4 @@ jsmpeg.prototype.scheduleNextFrame = function() {
 
 jsmpeg.prototype.scheduleAnimation = function() {
   requestAnimFrame( this.nextFrame.bind(this), this.canvas );
-};
-
-jsmpeg.prototype.renderFrame2D = function() {
-  this.YCbCrToRGBA();
-  this.canvasContext.putImageData(this.currentRGBA, 0, 0);
 };

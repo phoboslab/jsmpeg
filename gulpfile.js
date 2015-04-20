@@ -1,10 +1,17 @@
 var gulp = require('gulp');
-var concat = require('gulp-concat');
+var browserify = require('browserify');
+var source = require('vinyl-source-stream');
+// var concat = require('gulp-concat');
 
 gulp.task('scripts', function() {
-  return gulp.src(['./src/jsmpg.js', './src/*.js'])
-    .pipe(concat('jsmpg.js'))
-    .pipe(gulp.dest('./'));
+  browserify({
+    entries: ['./src/jsmpg.js'],
+    standalone: 'jsmpeg'
+  })
+    .bundle()
+    .pipe(source('jsmpg.js'))
+    .pipe(gulp.dest('./'))
+  ;
 });
 
 
