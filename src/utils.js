@@ -1,6 +1,3 @@
-// ----------------------------------------------------------------------------
-// Utilities
-
 jsmpeg.prototype.readCode = function(codeTable) {
   var state = 0;
   do {

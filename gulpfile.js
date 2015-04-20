@@ -6,3 +6,8 @@ gulp.task('scripts', function() {
     .pipe(concat('jsmpg.js'))
     .pipe(gulp.dest('./'));
 });
+
+
+gulp.task('watch', function () {
+  gulp.watch(['./src/*.js'], ['scripts']);
+});

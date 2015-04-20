@@ -9,7 +9,6 @@ var requestAnimFrame = (function(){
 
 var jsmpeg = function(opts) {
   opts = opts || {};
-  // this.benchmark = !!opts.benchmark;
   this.canvas = opts.canvas || document.createElement('canvas');
   this.autoplay = !!opts.autoplay;
   this.loop = !!opts.loop;
@@ -31,20 +30,12 @@ var jsmpeg = function(opts) {
     this.renderFrame = this.renderFrame2D;
   }
 
-  /*
-  if( url instanceof WebSocket ) {
-    this.client = url;
-    this.client.onopen = this.initSocketClient.bind(this);
-  } else {
-    this.load(url);
-  }
-   */
+  // this.load(url);
 };
 
 jsmpeg.prototype.scheduleDecoding = function() {
   this.decodePicture();
 };
-
 
 jsmpeg.prototype.load = function( url ) {
   this.url = url;
@@ -103,16 +94,10 @@ jsmpeg.prototype.stop = function() {
   }
 };
 
-
 jsmpeg.prototype.pictureRate = 30;
 jsmpeg.prototype.lateTime = 0;
 jsmpeg.prototype.firstSequenceHeader = 0;
 jsmpeg.prototype.targetTime = 0;
-
-// jsmpeg.prototype.benchmark = false;
-// jsmpeg.prototype.benchFrame = 0;
-// jsmpeg.prototype.benchDecodeTimes = 0;
-// jsmpeg.prototype.benchAvgFrameTime = 0;
 
 jsmpeg.prototype.now = function() {
   return window.performance
@@ -406,9 +391,8 @@ jsmpeg.prototype.decodePicture = function(skipOutput) {
   // We found the next start code; rewind 32bits and let the main loop handle it.
   this.buffer.rewind(32);
 
-  // Record this frame, if the recorder wants it
-  this.recordFrameFromCurrentBuffer();
-
+  // // Record this frame, if the recorder wants it
+  // this.recordFrameFromCurrentBuffer();
 
   if( skipOutput != DECODE_SKIP_OUTPUT ) {
 	this.renderFrame();
@@ -1962,59 +1946,6 @@ var MACROBLOCK_TYPE_TABLES = [
 ];
 
 // ----------------------------------------------------------------------------
-// Utilities
-
-jsmpeg.prototype.readCode = function(codeTable) {
-  var state = 0;
-  do {
-	state = codeTable[state + this.buffer.getBits(1)];
-  } while( state >= 0 && codeTable[state] != 0 );
-  return codeTable[state+2];
-};
-
-jsmpeg.prototype.findStartCode = function( code ) {
-  var current = 0;
-  while( true ) {
-	current = this.buffer.findNextMPEGStartCode();
-	if( current == code || current == BitReader.NOT_FOUND ) {
-	  return current;
-	}
-  }
-  return BitReader.NOT_FOUND;
-};
-
-jsmpeg.prototype.fillArray = function(a, value) {
-  for( var i = 0, length = a.length; i < length; i++ ) {
-	a[i] = value;
-  }
-};
-
-jsmpeg.prototype.cachedFrameCount = 0;
-jsmpeg.prototype.calculateFrameCount = function() {
-  if( !this.buffer || this.cachedFrameCount ) {
-	return this.cachedFrameCount;
-  }
-
-  // Remember the buffer position, so we can rewind to the beginning and
-  // reset to the current position afterwards
-  var currentPlaybackIndex = this.buffer.index,
-	  frames = 0;
-
-  this.buffer.index = 0;
-  while( this.findStartCode(START_PICTURE) !== BitReader.NOT_FOUND ) {
-	frames++;
-  }
-  this.buffer.index = currentPlaybackIndex;
-
-  this.cachedFrameCount = frames;
-  return frames;
-};
-
-jsmpeg.prototype.calculateDuration = function() {
-  return this.calculateFrameCount() * (1/this.pictureRate);
-};
-
-// ----------------------------------------------------------------------------
 // Accelerated WebGL YCbCrToRGBA conversion
 
 jsmpeg.prototype.gl = null;
@@ -2173,198 +2104,52 @@ SHADER_VERTEX_IDENTITY = [
   '}'
 ].join('\n');
 
-// ----------------------------------------------------------------------------
-// Streaming over WebSockets
-
-jsmpeg.prototype.waitForIntraFrame = true;
-jsmpeg.prototype.socketBufferSize = 512 * 1024; // 512kb each
-jsmpeg.prototype.onlostconnection = null;
-
-jsmpeg.prototype.initSocketClient = function( client ) {
-  this.buffer = new BitReader(new ArrayBuffer(this.socketBufferSize));
-
-  this.nextPictureBuffer = new BitReader(new ArrayBuffer(this.socketBufferSize));
-  this.nextPictureBuffer.writePos = 0;
-  this.nextPictureBuffer.chunkBegin = 0;
-  this.nextPictureBuffer.lastWriteBeforeWrap = 0;
-
-  this.client.binaryType = 'arraybuffer';
-  this.client.onmessage = this.receiveSocketMessage.bind(this);
+jsmpeg.prototype.readCode = function(codeTable) {
+  var state = 0;
+  do {
+	state = codeTable[state + this.buffer.getBits(1)];
+  } while( state >= 0 && codeTable[state] != 0 );
+  return codeTable[state+2];
 };
 
-jsmpeg.prototype.decodeSocketHeader = function( data ) {
-  // Custom header sent to all newly connected clients when streaming
-  // over websockets:
-  // struct { char magic[4] = "jsmp"; unsigned short width, height; };
-  if(
-	data[0] == SOCKET_MAGIC_BYTES.charCodeAt(0) &&
-	  data[1] == SOCKET_MAGIC_BYTES.charCodeAt(1) &&
-	  data[2] == SOCKET_MAGIC_BYTES.charCodeAt(2) &&
-	  data[3] == SOCKET_MAGIC_BYTES.charCodeAt(3)
-  ) {
-	this.width = (data[4] * 256 + data[5]);
-	this.height = (data[6] * 256 + data[7]);
-	this.initBuffers();
-  }
-};
-
-jsmpeg.prototype.receiveSocketMessage = function( event ) {
-  var messageData = new Uint8Array(event.data);
-
-  if( !this.sequenceStarted ) {
-	this.decodeSocketHeader(messageData);
-  }
-
-  var current = this.buffer;
-  var next = this.nextPictureBuffer;
-
-  if( next.writePos + messageData.length > next.length ) {
-	next.lastWriteBeforeWrap = next.writePos;
-	next.writePos = 0;
-	next.index = 0;
-  }
-
-  next.bytes.set( messageData, next.writePos );
-  next.writePos += messageData.length;
-
-  var startCode = 0;
+jsmpeg.prototype.findStartCode = function( code ) {
+  var current = 0;
   while( true ) {
-	startCode = next.findNextMPEGStartCode();
-	if(
-	  startCode == BitReader.NOT_FOUND ||
-		((next.index >> 3) > next.writePos)
-	) {
-	  // We reached the end with no picture found yet; move back a few bytes
-	  // in case we are at the beginning of a start code and exit.
-	  next.index = Math.max((next.writePos-3), 0) << 3;
-	  return;
-	}
-	else if( startCode == START_PICTURE ) {
-	  break;
+	current = this.buffer.findNextMPEGStartCode();
+	if( current == code || current == BitReader.NOT_FOUND ) {
+	  return current;
 	}
   }
-
-  // If we are still here, we found the next picture start code!
-
-
-  // Skip picture decoding until we find the first intra frame?
-  if( this.waitForIntraFrame ) {
-	next.advance(10); // skip temporalReference
-	if( next.getBits(3) == PICTURE_TYPE_I ) {
-	  this.waitForIntraFrame = false;
-	  next.chunkBegin = (next.index-13) >> 3;
-	}
-	return;
-  }
-
-  // Last picture hasn't been decoded yet? Decode now but skip output
-  // before scheduling the next one
-  if( !this.currentPictureDecoded ) {
-	this.decodePicture(DECODE_SKIP_OUTPUT);
-  }
-
-
-  // Copy the picture chunk over to 'this.buffer' and schedule decoding.
-  var chunkEnd = ((next.index) >> 3);
-
-  if( chunkEnd > next.chunkBegin ) {
-	// Just copy the current picture chunk
-	current.bytes.set( next.bytes.subarray(next.chunkBegin, chunkEnd) );
-	current.writePos = chunkEnd - next.chunkBegin;
-  }
-  else {
-	// We wrapped the nextPictureBuffer around, so we have to copy the last part
-	// till the end, as well as from 0 to the current writePos
-	current.bytes.set( next.bytes.subarray(next.chunkBegin, next.lastWriteBeforeWrap) );
-	var written = next.lastWriteBeforeWrap - next.chunkBegin;
-	current.bytes.set( next.bytes.subarray(0, chunkEnd), written );
-	current.writePos = chunkEnd + written;
-  }
-
-  current.index = 0;
-  next.chunkBegin = chunkEnd;
-
-  // Decode!
-  this.currentPictureDecoded = false;
-  requestAnimFrame( this.scheduleDecoding.bind(this), this.canvas );
+  return BitReader.NOT_FOUND;
 };
 
-
-// ----------------------------------------------------------------------------
-// Recording from WebSockets
-
-jsmpeg.prototype.isRecording = false;
-jsmpeg.prototype.recorderWaitForIntraFrame = false;
-jsmpeg.prototype.recordedFrames = 0;
-jsmpeg.prototype.recordedSize = 0;
-jsmpeg.prototype.didStartRecordingCallback = null;
-
-jsmpeg.prototype.recordBuffers = [];
-
-jsmpeg.prototype.canRecord = function(){
-  return (this.client && this.client.readyState == this.client.OPEN);
+jsmpeg.prototype.fillArray = function(a, value) {
+  for( var i = 0, length = a.length; i < length; i++ ) {
+	a[i] = value;
+  }
 };
 
-jsmpeg.prototype.startRecording = function(callback) {
-  if( !this.canRecord() ) {
-	return;
+jsmpeg.prototype.cachedFrameCount = 0;
+jsmpeg.prototype.calculateFrameCount = function() {
+  if( !this.buffer || this.cachedFrameCount ) {
+	return this.cachedFrameCount;
   }
 
-  // Discard old buffers and set for recording
-  this.discardRecordBuffers();
-  this.isRecording = true;
-  this.recorderWaitForIntraFrame = true;
-  this.didStartRecordingCallback = callback || null;
+  // Remember the buffer position, so we can rewind to the beginning and
+  // reset to the current position afterwards
+  var currentPlaybackIndex = this.buffer.index,
+	  frames = 0;
 
-  this.recordedFrames = 0;
-  this.recordedSize = 0;
-
-  // Fudge a simple Sequence Header for the MPEG file
-
-  // 3 bytes width & height, 12 bits each
-  var wh1 = (this.width >> 4),
-	  wh2 = ((this.width & 0xf) << 4) | (this.height >> 8),
-	  wh3 = (this.height & 0xff);
-
-  this.recordBuffers.push(new Uint8Array([
-	0x00, 0x00, 0x01, 0xb3, // Sequence Start Code
-	wh1, wh2, wh3, // Width & height
-	0x13, // aspect ratio & framerate
-	0xff, 0xff, 0xe1, 0x58, // Meh. Bitrate and other boring stuff
-	0x00, 0x00, 0x01, 0xb8, 0x00, 0x08, 0x00, // GOP
-	0x00, 0x00, 0x00, 0x01, 0x00 // First Picture Start Code
-  ]));
-};
-
-jsmpeg.prototype.recordFrameFromCurrentBuffer = function() {
-  if( !this.isRecording ) { return; }
-
-  if( this.recorderWaitForIntraFrame ) {
-	// Not an intra frame? Exit.
-	if( this.pictureCodingType != PICTURE_TYPE_I ) { return; }
-
-	// Start recording!
-	this.recorderWaitForIntraFrame = false;
-	if( this.didStartRecordingCallback ) {
-	  this.didStartRecordingCallback( this );
-	}
+  this.buffer.index = 0;
+  while( this.findStartCode(START_PICTURE) !== BitReader.NOT_FOUND ) {
+	frames++;
   }
+  this.buffer.index = currentPlaybackIndex;
 
-  this.recordedFrames++;
-  this.recordedSize += this.buffer.writePos;
-
-  // Copy the actual subrange for the current picture into a new Buffer
-  this.recordBuffers.push(new Uint8Array(this.buffer.bytes.subarray(0, this.buffer.writePos)));
+  this.cachedFrameCount = frames;
+  return frames;
 };
 
-jsmpeg.prototype.discardRecordBuffers = function() {
-  this.recordBuffers = [];
-  this.recordedFrames = 0;
-};
-
-jsmpeg.prototype.stopRecording = function() {
-  var blob = new Blob(this.recordBuffers, {type: 'video/mpeg'});
-  this.discardRecordBuffers();
-  this.isRecording = false;
-  return blob;
+jsmpeg.prototype.calculateDuration = function() {
+  return this.calculateFrameCount() * (1/this.pictureRate);
 };

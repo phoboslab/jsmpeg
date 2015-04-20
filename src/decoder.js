@@ -146,9 +146,8 @@ jsmpeg.prototype.decodePicture = function(skipOutput) {
   // We found the next start code; rewind 32bits and let the main loop handle it.
   this.buffer.rewind(32);
 
-  // Record this frame, if the recorder wants it
-  this.recordFrameFromCurrentBuffer();
-
+  // // Record this frame, if the recorder wants it
+  // this.recordFrameFromCurrentBuffer();
 
   if( skipOutput != DECODE_SKIP_OUTPUT ) {
 	this.renderFrame();

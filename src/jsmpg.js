@@ -37,7 +37,6 @@ jsmpeg.prototype.scheduleDecoding = function() {
   this.decodePicture();
 };
 
-
 jsmpeg.prototype.load = function( url ) {
   this.url = url;
 
