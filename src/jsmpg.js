@@ -9,7 +9,6 @@ var requestAnimFrame = (function(){
 
 var jsmpeg = function(opts) {
   opts = opts || {};
-  this.benchmark = !!opts.benchmark;
   this.canvas = opts.canvas || document.createElement('canvas');
   this.autoplay = !!opts.autoplay;
   this.loop = !!opts.loop;
@@ -57,12 +56,6 @@ jsmpeg.prototype.load = function( url ) {
 	}
   };
 
-  /*
-  request.onprogress = this.gl
-    ? this.updateLoaderGL.bind(this)
-    : this.updateLoader2D.bind(this);
-   */
-
   request.open('GET', url);
   request.responseType = "arraybuffer";
   request.send();
@@ -109,16 +102,10 @@ jsmpeg.prototype.stop = function() {
   }
 };
 
-
 jsmpeg.prototype.pictureRate = 30;
 jsmpeg.prototype.lateTime = 0;
 jsmpeg.prototype.firstSequenceHeader = 0;
 jsmpeg.prototype.targetTime = 0;
-
-jsmpeg.prototype.benchmark = false;
-jsmpeg.prototype.benchFrame = 0;
-jsmpeg.prototype.benchDecodeTimes = 0;
-jsmpeg.prototype.benchAvgFrameTime = 0;
 
 jsmpeg.prototype.now = function() {
   return window.performance
@@ -165,20 +152,9 @@ jsmpeg.prototype.scheduleNextFrame = function() {
   var wait = Math.max(0, (1000/this.pictureRate) - this.lateTime);
   this.targetTime = this.now() + wait;
 
-  if( this.benchmark ) {
-	this.benchFrame++;
-	if( this.benchFrame >= 120 ) {
-	  this.benchAvgFrameTime = this.benchDecodeTimes / this.benchFrame;
-	  this.benchFrame = 0;
-	  this.benchDecodeTimes = 0;
-	  if( window.console ) { console.log("Average time per frame:", this.benchAvgFrameTime, 'ms'); }
-	}
-	setTimeout( this.nextFrame.bind(this), 0);
-  }
-  else if( wait < 18) {
+  if (wait < 18) {
 	this.scheduleAnimation();
-  }
-  else {
+  } else {
 	setTimeout( this.scheduleAnimation.bind(this), wait );
   }
 };
