@@ -4,11 +4,11 @@ var Decoder = require('./Decoder.js');
 
 var requestAnimFrame = (function(){
   return window.requestAnimationFrame ||
-	window.webkitRequestAnimationFrame ||
-	window.mozRequestAnimationFrame ||
-	function( callback ){
-	  window.setTimeout(callback, 1000 / 60);
-	};
+    window.webkitRequestAnimationFrame ||
+    window.mozRequestAnimationFrame ||
+    function( callback ){
+      window.setTimeout(callback, 1000 / 60);
+    };
 })();
 
 var jsmpeg = module.exports = function(opts) {
@@ -33,22 +33,22 @@ jsmpeg.prototype.scheduleDecoding = function() {
 };
 
 /*
-jsmpeg.prototype.load = function( url ) {
-  this.url = url;
+ jsmpeg.prototype.load = function( url ) {
+ this.url = url;
 
-  var request = new XMLHttpRequest();
-  var that = this;
-  request.onreadystatechange = function() {
-	if( request.readyState == request.DONE && request.status == 200 ) {
-	  that.loadCallback(request.response);
-	}
-  };
+ var request = new XMLHttpRequest();
+ var that = this;
+ request.onreadystatechange = function() {
+ if( request.readyState == request.DONE && request.status == 200 ) {
+ that.loadCallback(request.response);
+ }
+ };
 
-  request.open('GET', url);
-  request.responseType = "arraybuffer";
-  request.send();
-};
-*/
+ request.open('GET', url);
+ request.responseType = "arraybuffer";
+ request.send();
+ };
+ */
 
 jsmpeg.prototype.loadBuffer = function(buffer) {
   this.decoder.loadBuffer(buffer);
@@ -57,11 +57,11 @@ jsmpeg.prototype.loadBuffer = function(buffer) {
   this.nextFrame();
 
   if( this.autoplay ) {
-	this.play();
+    this.play();
   }
 
   if( this.externalLoadCallback ) {
-	this.externalLoadCallback(this);
+    this.externalLoadCallback(this);
   }
 };
 
@@ -78,15 +78,15 @@ jsmpeg.prototype.pause = function() {
 
 jsmpeg.prototype.stop = function() {
   if( this.buffer ) {
-	this.buffer.index = this.firstSequenceHeader;
+    this.buffer.index = this.firstSequenceHeader;
   }
   this.playing = false;
 };
 
 jsmpeg.prototype.now = function() {
   return window.performance
-	? window.performance.now()
-	: Date.now();
+    ? window.performance.now()
+    : Date.now();
 };
 
 jsmpeg.prototype.nextFrame = function() {
@@ -98,29 +98,29 @@ jsmpeg.prototype.nextFrame = function() {
   while (true) {
     var code = this.decoder.getStartCode();
 
-	if( code == 0xB3 /* START_SEQUENCE */ ) {
-	  this.decoder.decodeSequenceHeader();
-	} else if ( code == 0x00 /* START_PICTURE */ ) {
-	  if( this.playing ) {
-		this.scheduleNextFrame();
-	  }
-	  this.decoder.decodePicture();
+    if( code == 0xB3 /* START_SEQUENCE */ ) {
+      this.decoder.decodeSequenceHeader();
+    } else if ( code == 0x00 /* START_PICTURE */ ) {
+      if( this.playing ) {
+        this.scheduleNextFrame();
+      }
+      this.decoder.decodePicture();
       return;
-	} else if ( code == BitReader.NOT_FOUND ) {
-	  this.stop(); // Jump back to the beginning
+    } else if ( code == BitReader.NOT_FOUND ) {
+      this.stop(); // Jump back to the beginning
 
-	  if( this.externalFinishedCallback ) {
-		this.externalFinishedCallback(this);
-	  }
+      if( this.externalFinishedCallback ) {
+        this.externalFinishedCallback(this);
+      }
 
-	  // Only loop if we found a sequence header
-	  if( this.loop && this.sequenceStarted ) {
-		this.play();
-	  }
-	  return;
-	} else {
-	  // ignore (GROUP, USER_DATA, EXTENSION, SLICES...)
-	}
+      // Only loop if we found a sequence header
+      if( this.loop && this.sequenceStarted ) {
+        this.play();
+      }
+      return;
+    } else {
+      // ignore (GROUP, USER_DATA, EXTENSION, SLICES...)
+    }
   }
 };
 
@@ -130,9 +130,9 @@ jsmpeg.prototype.scheduleNextFrame = function() {
   this.targetTime = this.now() + wait;
 
   if (wait < 18) {
-	this.scheduleAnimation();
+    this.scheduleAnimation();
   } else {
-	setTimeout( this.scheduleAnimation.bind(this), wait );
+    setTimeout( this.scheduleAnimation.bind(this), wait );
   }
 };
 
