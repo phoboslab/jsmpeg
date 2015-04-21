@@ -14,9 +14,12 @@ var requestAnimationFrame = (function() {
 })();
 
 var getTime = function() {
-  return window.performance
-    ? window.performance.now()
-    : Date.now();
+  if (window.performance) {
+    if (window.performance.now) {
+      return window.performance.now();
+    }
+  }
+  return Date.now();
 };
 
 

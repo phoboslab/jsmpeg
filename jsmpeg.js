@@ -15,9 +15,12 @@ var requestAnimationFrame = (function() {
 })();
 
 var getTime = function() {
-  return window.performance
-    ? window.performance.now()
-    : Date.now();
+  if (window.performance) {
+    if (window.performance.now) {
+      return window.performance.now();
+    }
+  }
+  return Date.now();
 };
 
 
@@ -1505,15 +1508,7 @@ var Decoder = module.exports = function() {
   this.zeroBlockData = new Int32Array(64);
   this.fillArray(this.zeroBlockData, 0);
 
-  // this.currentY = null;
-  // this.currentCr = null;
-  // this.currentCb = null;
   this.pictureCodingType = 0;
-
-  // this.forwardY = null;
-  // this.forwardCr = null;
-  // this.forwardCb = null;
-
   this.fullPelForward = false;
   this.forwardFCode = 0;
   this.forwardRSize = 0;
@@ -1534,10 +1529,6 @@ var Decoder = module.exports = function() {
   this.motionFwV = 0;
   this.motionFwHPrev = 0;
   this.motionFwVPrev = 0;
-
-  // this.dcPredictorY = null;
-  // this.dcPredictorCr = null;
-  // this.dcPredictorCb = null;
 
   this.cachedFrameCount = 0;
 };
@@ -1585,8 +1576,8 @@ Decoder.prototype.decodeSequenceHeader = function() {
   }
 
   if (this.buffer.getBits(1)) { // load custom non intra quant matrix?
-    for (var i = 0; i < 64; i++) {
-      this.customNonIntraQuantMatrix[ZIG_ZAG[i]] = this.buffer.getBits(8);
+    for (var j = 0; i < 64; i++) {
+      this.customNonIntraQuantMatrix[ZIG_ZAG[j]] = this.buffer.getBits(8);
     }
     this.nonIntraQuantMatrix = this.customNonIntraQuantMatrix;
   }
