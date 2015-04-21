@@ -15,11 +15,14 @@ var requestAnimFrame = (function(){
 })();
 
 var jsmpeg = module.exports = function(url, opts) {
+  opts = opts || {};
+
   this.url = url;
   this.load();
 
-  opts = opts || {};
   this.canvas = opts.canvas || document.createElement('canvas');
+  this.ctx = this.canvas.getContext('2d');
+
   this.autoplay = !!opts.autoplay;
   this.loop = !!opts.loop;
 
@@ -42,7 +45,7 @@ jsmpeg.prototype.load = function() {
   this.videoLoader = new VideoLoader(this.url);
   this.videoLoader.once('load', (function() {
     this.loadBuffer(this.videoLoader.getNext());
-    this.play();
+    // this.play();
   }.bind(this)));
   this.videoLoader.load();
 };
@@ -97,6 +100,9 @@ jsmpeg.prototype.nextFrame = function() {
         this.scheduleNextFrame();
       }
       this.decoder.decodePicture();
+      this.ctx.drawImage(this.decoder.canvas,
+                         0, 0, this.decoder.width, this.decoder.height,
+                         0, 0, this.canvas.width, this.canvas.height);
       return;
     } else if ( code == BitReader.NOT_FOUND ) {
       this.stop(); // Jump back to the beginning

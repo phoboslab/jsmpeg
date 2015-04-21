@@ -16,11 +16,14 @@ var requestAnimFrame = (function(){
 })();
 
 var jsmpeg = module.exports = function(url, opts) {
+  opts = opts || {};
+
   this.url = url;
   this.load();
 
-  opts = opts || {};
   this.canvas = opts.canvas || document.createElement('canvas');
+  this.ctx = this.canvas.getContext('2d');
+
   this.autoplay = !!opts.autoplay;
   this.loop = !!opts.loop;
 
@@ -43,7 +46,7 @@ jsmpeg.prototype.load = function() {
   this.videoLoader = new VideoLoader(this.url);
   this.videoLoader.once('load', (function() {
     this.loadBuffer(this.videoLoader.getNext());
-    this.play();
+    // this.play();
   }.bind(this)));
   this.videoLoader.load();
 };
@@ -98,6 +101,9 @@ jsmpeg.prototype.nextFrame = function() {
         this.scheduleNextFrame();
       }
       this.decoder.decodePicture();
+      this.ctx.drawImage(this.decoder.canvas,
+                         0, 0, this.decoder.width, this.decoder.height,
+                         0, 0, this.canvas.width, this.canvas.height);
       return;
     } else if ( code == BitReader.NOT_FOUND ) {
       this.stop(); // Jump back to the beginning
@@ -1487,8 +1493,8 @@ BitReader.prototype.rewind = function(count) {
 },{}],8:[function(require,module,exports){
 var BitReader = require('./BitReader.js');
 
-var Decoder = module.exports = function(canvas) {
-  this.canvas = canvas;
+var Decoder = module.exports = function() {
+  this.canvas = document.createElement('canvas');
   /*
   // use WebGL for YCbCrToRGBA conversion if possible (much faster)
   if( !opts.forceCanvas2D && this.initWebGL() ) {
@@ -2562,7 +2568,6 @@ Decoder.prototype.calculateDuration = function() {
 
 
 var
-SOCKET_MAGIC_BYTES = 'jsmp',
 DECODE_SKIP_OUTPUT = 1,
 PICTURE_RATE = [
   0.000, 23.976, 24.000, 25.000, 29.970, 30.000, 50.000, 59.940,
@@ -3296,14 +3301,6 @@ VideoLoader.prototype.load = function() {
     request.open('GET', this.queue[0]);
     request.responseType = "arraybuffer";
     request.send();
-  }
-};
-
-VideoLoader.prototype.add = function(url) {
-  this.queue.push(url);
-
-  if (!this.loading) {
-    this.load();
   }
 };
 

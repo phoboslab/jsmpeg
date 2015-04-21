@@ -45,11 +45,3 @@ VideoLoader.prototype.load = function() {
     request.send();
   }
 };
-
-VideoLoader.prototype.add = function(url) {
-  this.queue.push(url);
-
-  if (!this.loading) {
-    this.load();
-  }
-};

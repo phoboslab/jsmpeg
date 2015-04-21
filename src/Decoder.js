@@ -1,7 +1,7 @@
 var BitReader = require('./BitReader.js');
 
-var Decoder = module.exports = function(canvas) {
-  this.canvas = canvas;
+var Decoder = module.exports = function() {
+  this.canvas = document.createElement('canvas');
   /*
   // use WebGL for YCbCrToRGBA conversion if possible (much faster)
   if( !opts.forceCanvas2D && this.initWebGL() ) {
@@ -1075,7 +1075,6 @@ Decoder.prototype.calculateDuration = function() {
 
 
 var
-SOCKET_MAGIC_BYTES = 'jsmp',
 DECODE_SKIP_OUTPUT = 1,
 PICTURE_RATE = [
   0.000, 23.976, 24.000, 25.000, 29.970, 30.000, 50.000, 59.940,
