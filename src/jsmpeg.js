@@ -14,16 +14,9 @@ var requestAnimFrame = (function(){
     };
 })();
 
-var jsmpeg = module.exports = function(urls, opts) {
-  this.videoIndex = 0;
-  urls = Array.isArray(urls) ? urls : [urls];
-  this.videoLoader = new VideoLoader(urls);
-  this.videoLoader.on('load', (function() {
-    this.loadBuffer(this.videoLoader.videos[this.videoIndex]);
-    this.videoIndex++;
-    this.play();
-  }.bind(this)));
-  this.videoLoader.load();
+var jsmpeg = module.exports = function(url, opts) {
+  this.url = url;
+  this.load();
 
   opts = opts || {};
   this.canvas = opts.canvas || document.createElement('canvas');
@@ -45,23 +38,14 @@ jsmpeg.prototype.scheduleDecoding = function() {
   this.decoder.decodePicture();
 };
 
-/*
- jsmpeg.prototype.load = function( url ) {
- this.url = url;
-
- var request = new XMLHttpRequest();
- var that = this;
- request.onreadystatechange = function() {
- if( request.readyState == request.DONE && request.status == 200 ) {
- that.loadCallback(request.response);
- }
- };
-
- request.open('GET', url);
- request.responseType = "arraybuffer";
- request.send();
- };
- */
+jsmpeg.prototype.load = function() {
+  this.videoLoader = new VideoLoader(this.url);
+  this.videoLoader.once('load', (function() {
+    this.loadBuffer(this.videoLoader.getNext());
+    this.play();
+  }.bind(this)));
+  this.videoLoader.load();
+};
 
 jsmpeg.prototype.loadBuffer = function(buffer) {
   this.decoder.loadBuffer(buffer);
@@ -99,7 +83,6 @@ jsmpeg.prototype.now = function() {
 };
 
 jsmpeg.prototype.nextFrame = function() {
-  // if( !this.buffer ) { return; }
   if (!this.decoder.buffer) {
     return;
   }
@@ -117,17 +100,26 @@ jsmpeg.prototype.nextFrame = function() {
       return;
     } else if ( code == BitReader.NOT_FOUND ) {
       this.stop(); // Jump back to the beginning
-      if (this.videoIndex < this.videoLoader.videos.length ) {
-        this.loadBuffer(this.videoLoader.videos[this.videoIndex]);
-        this.videoIndex++;
+      var video = this.videoLoader.getNext();
+      if (video) {
+        this.loadBuffer(video);
         this.play();
       } else {
         // Only loop if we found a sequence header
-        if( this.loop ) {
-          this.videoIndex = 0;
-          this.loadBuffer(this.videoLoader.videos[this.videoIndex]);
+        if( this.loop && !this.videoLoader.loading) {
+          this.videoLoader.index = 0;
+          this.loadBuffer(this.videoLoader.getNext());
           this.play();
         } else {
+          if (this.videoLoader.loading) {
+            this.videoLoader.once('load', (function() {
+              var video = this.videoLoader.getNext();
+              if (video) {
+                this.loadBuffer(video);
+                this.play();
+              }
+            }.bind(this)));
+          }
           return;
         }
       }
