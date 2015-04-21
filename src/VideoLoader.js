@@ -35,7 +35,7 @@ VideoLoader.prototype.load = function() {
         this.emit('loadingComplete');
         this.loading = false;
       }
-	}
+    }
   }).bind(this);
 
   if (this.queue.length > 0) {

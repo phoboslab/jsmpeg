@@ -5,11 +5,10 @@ var VideoLoader = require('./VideoLoader.js');
 var BitReader = require('./BitReader.js');
 var Decoder = require('./Decoder.js');
 
-var requestAnimFrame = (function(){
+var requestAnimFrame = (function() {
   return window.requestAnimationFrame ||
     window.webkitRequestAnimationFrame ||
-    window.mozRequestAnimationFrame ||
-    function( callback ){
+    window.mozRequestAnimationFrame || function(callback) {
       window.setTimeout(callback, 1000 / 60);
     };
 })();
@@ -56,13 +55,15 @@ jsmpeg.prototype.loadBuffer = function(buffer) {
   // Load the first frame
   this.nextFrame();
 
-  if( this.autoplay ) {
+  if (this.autoplay) {
     this.play();
   }
 };
 
 jsmpeg.prototype.play = function() {
-  if( this.playing ) { return; }
+  if (this.playing) {
+    return;
+  }
   this.targetTime = this.now();
   this.playing = true;
   this.scheduleNextFrame();
@@ -73,7 +74,7 @@ jsmpeg.prototype.pause = function() {
 };
 
 jsmpeg.prototype.stop = function() {
-  if( this.buffer ) {
+  if (this.buffer) {
     this.buffer.index = this.firstSequenceHeader;
   }
   this.playing = false;
@@ -93,18 +94,18 @@ jsmpeg.prototype.nextFrame = function() {
   while (true) {
     var code = this.decoder.getStartCode();
 
-    if( code == 0xB3 /* START_SEQUENCE */ ) {
+    if (code == 0xB3 /* START_SEQUENCE */ ) {
       this.decoder.decodeSequenceHeader();
-    } else if ( code == 0x00 /* START_PICTURE */ ) {
-      if( this.playing ) {
+    } else if (code == 0x00 /* START_PICTURE */ ) {
+      if (this.playing) {
         this.scheduleNextFrame();
       }
       this.decoder.decodePicture();
       this.ctx.drawImage(this.decoder.canvas,
-                         0, 0, this.decoder.width, this.decoder.height,
-                         0, 0, this.canvas.width, this.canvas.height);
+        0, 0, this.decoder.width, this.decoder.height,
+        0, 0, this.canvas.width, this.canvas.height);
       return;
-    } else if ( code == BitReader.NOT_FOUND ) {
+    } else if (code == BitReader.NOT_FOUND) {
       this.stop(); // Jump back to the beginning
       var video = this.videoLoader.getNext();
       if (video) {
@@ -112,7 +113,7 @@ jsmpeg.prototype.nextFrame = function() {
         this.play();
       } else {
         // Only loop if we found a sequence header
-        if( this.loop && !this.videoLoader.loading) {
+        if (this.loop && !this.videoLoader.loading) {
           this.videoLoader.index = 0;
           this.loadBuffer(this.videoLoader.getNext());
           this.play();
@@ -137,16 +138,16 @@ jsmpeg.prototype.nextFrame = function() {
 
 jsmpeg.prototype.scheduleNextFrame = function() {
   this.lateTime = this.now() - this.targetTime;
-  var wait = Math.max(0, (1000/this.pictureRate) - this.lateTime);
+  var wait = Math.max(0, (1000 / this.pictureRate) - this.lateTime);
   this.targetTime = this.now() + wait;
 
   if (wait < 18) {
     this.scheduleAnimation();
   } else {
-    setTimeout( this.scheduleAnimation.bind(this), wait );
+    setTimeout(this.scheduleAnimation.bind(this), wait);
   }
 };
 
 jsmpeg.prototype.scheduleAnimation = function() {
-  requestAnimFrame( this.nextFrame.bind(this), this.canvas );
+  requestAnimFrame(this.nextFrame.bind(this), this.canvas);
 };
