@@ -57,6 +57,27 @@ var Decoder = module.exports = function() {
   this.cachedFrameCount = 0;
 };
 
+Decoder.prototype.nextFrame = function () {
+  if (!this.buffer) {
+    return false;
+  }
+
+  while (true) {
+    var code = this.getStartCode();
+
+    if (code == START_SEQUENCE) {
+      this.decodeSequenceHeader();
+    } else if (code == START_PICTURE) {
+      this.decodePicture();
+      return true;
+    } else if (code == BitReader.NOT_FOUND) {
+      return false;
+    } else {
+      // ignore (GROUP, USER_DATA, EXTENSION, SLICES...)
+    }
+  }
+};
+
 Decoder.prototype.renderFrame2D = function() {
   this.YCbCrToRGBA();
   this.canvasContext.putImageData(this.currentRGBA, 0, 0);
