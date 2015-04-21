@@ -25,7 +25,7 @@ var jsmpeg = module.exports = function(url, opts) {
   this.autoplay = !!opts.autoplay;
   this.loop = !!opts.loop;
 
-  this.pictureRate = 30;
+  // this.pictureRate = 30;
   this.lateTime = 0;
   this.firstSequenceHeader = 0;
   this.targetTime = 0;
@@ -138,7 +138,7 @@ jsmpeg.prototype.nextFrame = function() {
 
 jsmpeg.prototype.scheduleNextFrame = function() {
   this.lateTime = this.now() - this.targetTime;
-  var wait = Math.max(0, (1000 / this.pictureRate) - this.lateTime);
+  var wait = Math.max(0, (1000 / this.decoder.pictureRate) - this.lateTime);
   this.targetTime = this.now() + wait;
 
   if (wait < 18) {
