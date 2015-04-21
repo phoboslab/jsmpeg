@@ -53,6 +53,8 @@ var Decoder = module.exports = function(canvas) {
   // this.dcPredictorY = null;
   // this.dcPredictorCr = null;
   // this.dcPredictorCb = null;
+
+  this.cachedFrameCount = 0;
 };
 
 Decoder.prototype.renderFrame2D = function() {
@@ -104,7 +106,6 @@ Decoder.prototype.initBuffers = function() {
   if( this.sequenceStarted ) { return; }
   this.sequenceStarted = true;
 
-
   // Manually clamp values when writing macroblocks for shitty browsers
   // that don't support Uint8ClampedArray
   var MaybeClampedUint8Array = window.Uint8ClampedArray || window.Uint8Array;
@@ -137,14 +138,14 @@ Decoder.prototype.initBuffers = function() {
   this.canvas.height = this.height;
 
   /*
-  if( this.gl ) {
-    this.gl.useProgram(this.program);
-    this.gl.viewport(0, 0, this.width, this.height);
-  }
-  else {
-    this.currentRGBA = this.canvasContext.getImageData(0, 0, this.width, this.height);
-    this.fillArray(this.currentRGBA.data, 255);
-  }
+   if( this.gl ) {
+   this.gl.useProgram(this.program);
+   this.gl.viewport(0, 0, this.width, this.height);
+   }
+   else {
+   this.currentRGBA = this.canvasContext.getImageData(0, 0, this.width, this.height);
+   this.fillArray(this.currentRGBA.data, 255);
+   }
    */
   this.currentRGBA = this.canvasContext.getImageData(0, 0, this.width, this.height);
   this.fillArray(this.currentRGBA.data, 255);
@@ -159,7 +160,7 @@ Decoder.prototype.loadBuffer = function(buffer) {
 };
 
 Decoder.prototype.getStartCode = function() {
-	return this.buffer.findNextMPEGStartCode();
+  return this.buffer.findNextMPEGStartCode();
 };
 
 Decoder.prototype.decodePicture = function(skipOutput) {
@@ -1048,7 +1049,6 @@ Decoder.prototype.fillArray = function(a, value) {
   }
 };
 
-Decoder.prototype.cachedFrameCount = 0;
 Decoder.prototype.calculateFrameCount = function() {
   if( !this.buffer || this.cachedFrameCount ) {
 	return this.cachedFrameCount;

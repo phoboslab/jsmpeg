@@ -1,3 +1,6 @@
+var EventEmitter2 = require('eventemitter2').EventEmitter2;
+var util = require('util');
+
 var VideoLoader = require('./VideoLoader.js');
 var BitReader = require('./BitReader.js');
 var Decoder = require('./Decoder.js');
@@ -14,7 +17,8 @@ var requestAnimFrame = (function(){
 var jsmpeg = module.exports = function(urls, opts) {
   this.videoIndex = 0;
   urls = Array.isArray(urls) ? urls : [urls];
-  this.videoLoader = new VideoLoader(urls, (function() {
+  this.videoLoader = new VideoLoader(urls);
+  this.videoLoader.on('load', (function() {
     this.loadBuffer(this.videoLoader.videos[this.videoIndex]);
     this.videoIndex++;
     this.play();
@@ -33,6 +37,9 @@ var jsmpeg = module.exports = function(urls, opts) {
 
   this.decoder = new Decoder(this.canvas);
 };
+
+util.inherits(jsmpeg, EventEmitter2);
+
 
 jsmpeg.prototype.scheduleDecoding = function() {
   this.decoder.decodePicture();

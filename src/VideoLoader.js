@@ -1,9 +1,15 @@
+var EventEmitter2 = require('eventemitter2').EventEmitter2;
+var util = require('util');
+
 var VideoLoader = module.exports = function(urls, onLoadFinish) {
   this.videos = [];
   this.queue = urls || [];
   this.loading = false;
   this.onLoadFinish = onLoadFinish;
 };
+
+util.inherits(VideoLoader, EventEmitter2);
+
 
 VideoLoader.prototype.load = function() {
   var request = new XMLHttpRequest();
@@ -14,9 +20,7 @@ VideoLoader.prototype.load = function() {
         this.queue = this.queue.slice(1);
         this.load();
       } else {
-        if (this.onLoadFinish) {
-          this.onLoadFinish();
-        }
+        this.emit('load');
         this.loading = false;
       }
 	}
