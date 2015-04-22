@@ -1,5 +1,5 @@
 var EventEmitter2 = require('eventemitter2').EventEmitter2;
-var util = require('util');
+var inherits = require('util').inherits;
 
 var VideoLoader = module.exports = function(urls) {
   this.videos = [];
@@ -11,7 +11,7 @@ var VideoLoader = module.exports = function(urls) {
   this.loading = false;
 };
 
-util.inherits(VideoLoader, EventEmitter2);
+inherits(VideoLoader, EventEmitter2);
 
 VideoLoader.prototype.getNext = function() {
   if (this.index < this.videos.length) {

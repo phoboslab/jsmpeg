@@ -1,6 +1,6 @@
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.jsmpeg = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var EventEmitter2 = require('eventemitter2').EventEmitter2;
-var util = require('util');
+var inherits = require('util').inherits;
 
 var VideoLoader = require('./VideoLoader.js');
 var BitReader = require('./BitReader.js');
@@ -23,7 +23,6 @@ var getTime = function() {
   return Date.now();
 };
 
-
 var jsmpeg = module.exports = function(url, opts) {
   opts = opts || {};
 
@@ -44,7 +43,7 @@ var jsmpeg = module.exports = function(url, opts) {
   this.time = 0;
 };
 
-util.inherits(jsmpeg, EventEmitter2);
+inherits(jsmpeg, EventEmitter2);
 
 
 jsmpeg.prototype.scheduleDecoding = function() {
@@ -84,9 +83,8 @@ jsmpeg.prototype.pause = function() {
 };
 
 jsmpeg.prototype.stop = function() {
-  if (this.buffer) {
-    this.buffer.index = this.firstSequenceHeader;
-  }
+  this.videoLoader.index = 0;
+  this.loadBuffer(this.videoLoader.getNext());
   this.playing = false;
 };
 
@@ -3134,7 +3132,7 @@ var MACROBLOCK_TYPE_TABLES = [
 
 },{"./BitReader.js":7,"./CanvasRenderer.js":8,"./WebGLRenderer.js":11,"./utils.js":12}],10:[function(require,module,exports){
 var EventEmitter2 = require('eventemitter2').EventEmitter2;
-var util = require('util');
+var inherits = require('util').inherits;
 
 var VideoLoader = module.exports = function(urls) {
   this.videos = [];
@@ -3146,7 +3144,7 @@ var VideoLoader = module.exports = function(urls) {
   this.loading = false;
 };
 
-util.inherits(VideoLoader, EventEmitter2);
+inherits(VideoLoader, EventEmitter2);
 
 VideoLoader.prototype.getNext = function() {
   if (this.index < this.videos.length) {

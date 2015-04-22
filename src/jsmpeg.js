@@ -1,5 +1,5 @@
 var EventEmitter2 = require('eventemitter2').EventEmitter2;
-var util = require('util');
+var inherits = require('util').inherits;
 
 var VideoLoader = require('./VideoLoader.js');
 var BitReader = require('./BitReader.js');
@@ -22,7 +22,6 @@ var getTime = function() {
   return Date.now();
 };
 
-
 var jsmpeg = module.exports = function(url, opts) {
   opts = opts || {};
 
@@ -43,7 +42,7 @@ var jsmpeg = module.exports = function(url, opts) {
   this.time = 0;
 };
 
-util.inherits(jsmpeg, EventEmitter2);
+inherits(jsmpeg, EventEmitter2);
 
 
 jsmpeg.prototype.scheduleDecoding = function() {
@@ -83,9 +82,8 @@ jsmpeg.prototype.pause = function() {
 };
 
 jsmpeg.prototype.stop = function() {
-  if (this.buffer) {
-    this.buffer.index = this.firstSequenceHeader;
-  }
+  this.videoLoader.index = 0;
+  this.loadBuffer(this.videoLoader.getNext());
   this.playing = false;
 };
 
