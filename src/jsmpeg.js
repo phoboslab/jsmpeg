@@ -35,10 +35,9 @@ var jsmpeg = module.exports = function(url, opts) {
   this.autoplay = !!opts.autoplay;
   this.loop = !!opts.loop;
 
-  // this.pictureRate = 30;
-  this.lateTime = 0;
+  // this.lateTime = 0;
   this.firstSequenceHeader = 0;
-  this.targetTime = 0;
+  // this.targetTime = 0;
 
   this.decoder = new Decoder(this.canvas);
   this.time = 0;
@@ -55,7 +54,6 @@ jsmpeg.prototype.load = function() {
   this.videoLoader = new VideoLoader(this.url);
   this.videoLoader.once('load', (function() {
     this.loadBuffer(this.videoLoader.getNext());
-    // this.play();
   }.bind(this)));
   this.videoLoader.load();
 };
@@ -76,7 +74,6 @@ jsmpeg.prototype.play = function() {
     return;
   }
 
-  this.startTime = getTime();
   this.playing = true;
   this.animate();
 };
@@ -101,7 +98,6 @@ jsmpeg.prototype.processFrame = function() {
     );
   } else {
     this.stop();
-    console.log(getTime() - this.startTime);
 
     var video = this.videoLoader.getNext();
     if (video) {

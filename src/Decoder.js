@@ -1,24 +1,28 @@
 var BitReader = require('./BitReader.js');
+var WebGLRenderer = require('./WebGLRenderer.js');
+var CanvasRenderer = require('./CanvasRenderer.js');
+var utils = require('./utils.js');
 
-var Decoder = module.exports = function() {
+var Decoder = module.exports = function(options) {
+  options = options || {};
+
   this.canvas = document.createElement('canvas');
-  /*
   // use WebGL for YCbCrToRGBA conversion if possible (much faster)
-  if( !opts.forceCanvas2D && this.initWebGL() ) {
-    this.renderFrame = this.renderFrameGL;
-  } else {
-    this.canvasContext = this.canvas.getContext('2d');
-    this.renderFrame = this.renderFrame2D;
+  if (!options.forceCanva2D) {
+    var webGLRenderer = new WebGLRenderer(this, this.canvas);
+    if (webGLRenderer.initGL()) {
+      this.renderer = webGLRenderer;
+    }
   }
-   */
-  this.canvasContext = this.canvas.getContext('2d');
-  this.renderFrame = this.renderFrame2D;
+  if (!this.renderer) {
+    this.renderer = new CanvasRenderer(this, this.canvas);
+  }
 
   this.customIntraQuantMatrix = new Uint8Array(64);
   this.customNonIntraQuantMatrix = new Uint8Array(64);
   this.blockData = new Int32Array(64);
   this.zeroBlockData = new Int32Array(64);
-  this.fillArray(this.zeroBlockData, 0);
+  utils.fillArray(this.zeroBlockData, 0);
 
   this.pictureCodingType = 0;
   this.fullPelForward = false;
@@ -45,6 +49,10 @@ var Decoder = module.exports = function() {
   this.cachedFrameCount = 0;
 };
 
+Decoder.prototype.renderFrame = function(Y, Cb, Cr) {
+  this.renderer.render(Y, Cb, Cr);
+};
+
 Decoder.prototype.nextFrame = function () {
   if (!this.buffer) {
     return false;
@@ -61,14 +69,9 @@ Decoder.prototype.nextFrame = function () {
     } else if (code == BitReader.NOT_FOUND) {
       return false;
     } else {
-      // ignore (GROUP, USER_DATA, EXTENSION, SLICES...)
+      // ignore
     }
   }
-};
-
-Decoder.prototype.renderFrame2D = function() {
-  this.YCbCrToRGBA();
-  this.canvasContext.putImageData(this.currentRGBA, 0, 0);
 };
 
 Decoder.prototype.decodeSequenceHeader = function() {
@@ -78,7 +81,9 @@ Decoder.prototype.decodeSequenceHeader = function() {
   this.pictureRate = PICTURE_RATE[this.buffer.getBits(4)];
   this.buffer.advance(18 + 1 + 10 + 1); // skip bitRate, marker, bufferSize and constrained bit
 
+  // init buffers and renderer
   this.initBuffers();
+  this.renderer.init();
 
   if (this.buffer.getBits(1)) { // load custom intra quant matrix?
     for (var i = 0; i < 64; i++) {
@@ -117,49 +122,23 @@ Decoder.prototype.initBuffers = function() {
   }
   this.sequenceStarted = true;
 
-  // Manually clamp values when writing macroblocks for shitty browsers
-  // that don't support Uint8ClampedArray
-  var MaybeClampedUint8Array = window.Uint8ClampedArray || window.Uint8Array;
-  if (!window.Uint8ClampedArray) {
-    this.copyBlockToDestination = this.copyBlockToDestinationClamp;
-    this.addBlockToDestination = this.addBlockToDestinationClamp;
-  }
-
   // Allocated buffers and resize the canvas
-  this.currentY = new MaybeClampedUint8Array(this.codedSize);
-  this.currentY32 = new Uint32Array(this.currentY.buffer);
+  this.Y = new utils.MaybeClampedUint8Array(this.codedSize);
+  this.Y32 = new Uint32Array(this.Y.buffer);
+  this.Cr = new utils.MaybeClampedUint8Array(this.codedSize >> 2);
+  this.Cr32 = new Uint32Array(this.Cr.buffer);
+  this.Cb = new utils.MaybeClampedUint8Array(this.codedSize >> 2);
+  this.Cb32 = new Uint32Array(this.Cb.buffer);
 
-  this.currentCr = new MaybeClampedUint8Array(this.codedSize >> 2);
-  this.currentCr32 = new Uint32Array(this.currentCr.buffer);
-
-  this.currentCb = new MaybeClampedUint8Array(this.codedSize >> 2);
-  this.currentCb32 = new Uint32Array(this.currentCb.buffer);
-
-
-  this.forwardY = new MaybeClampedUint8Array(this.codedSize);
+  this.forwardY = new utils.MaybeClampedUint8Array(this.codedSize);
   this.forwardY32 = new Uint32Array(this.forwardY.buffer);
-
-  this.forwardCr = new MaybeClampedUint8Array(this.codedSize >> 2);
+  this.forwardCr = new utils.MaybeClampedUint8Array(this.codedSize >> 2);
   this.forwardCr32 = new Uint32Array(this.forwardCr.buffer);
-
-  this.forwardCb = new MaybeClampedUint8Array(this.codedSize >> 2);
+  this.forwardCb = new utils.MaybeClampedUint8Array(this.codedSize >> 2);
   this.forwardCb32 = new Uint32Array(this.forwardCb.buffer);
 
   this.canvas.width = this.width;
   this.canvas.height = this.height;
-
-  /*
-   if( this.gl ) {
-   this.gl.useProgram(this.program);
-   this.gl.viewport(0, 0, this.width, this.height);
-   }
-   else {
-   this.currentRGBA = this.canvasContext.getImageData(0, 0, this.width, this.height);
-   this.fillArray(this.currentRGBA.data, 255);
-   }
-   */
-  this.currentRGBA = this.canvasContext.getImageData(0, 0, this.width, this.height);
-  this.fillArray(this.currentRGBA.data, 255);
 };
 
 Decoder.prototype.loadBuffer = function(buffer) {
@@ -211,7 +190,7 @@ Decoder.prototype.decodePicture = function(skipOutput) {
   this.buffer.rewind(32);
 
   if (skipOutput != DECODE_SKIP_OUTPUT) {
-    this.renderFrame();
+    this.renderFrame(this.Y, this.Cb, this.Cr);
 
     if (this.externalDecodeCallback) {
       this.externalDecodeCallback(this, this.canvas);
@@ -227,96 +206,21 @@ Decoder.prototype.decodePicture = function(skipOutput) {
     var tmpCb = this.forwardCb;
     var tmpCb32 = this.forwardCb32;
 
-    this.forwardY = this.currentY;
-    this.forwardY32 = this.currentY32;
-    this.forwardCr = this.currentCr;
-    this.forwardCr32 = this.currentCr32;
-    this.forwardCb = this.currentCb;
-    this.forwardCb32 = this.currentCb32;
+    this.forwardY = this.Y;
+    this.forwardY32 = this.Y32;
+    this.forwardCr = this.Cr;
+    this.forwardCr32 = this.Cr32;
+    this.forwardCb = this.Cb;
+    this.forwardCb32 = this.Cb32;
 
-    this.currentY = tmpY;
-    this.currentY32 = tmpY32;
-    this.currentCr = tmpCr;
-    this.currentCr32 = tmpCr32;
-    this.currentCb = tmpCb;
-    this.currentCb32 = tmpCb32;
+    this.Y = tmpY;
+    this.Y32 = tmpY32;
+    this.Cr = tmpCr;
+    this.Cr32 = tmpCr32;
+    this.Cb = tmpCb;
+    this.Cb32 = tmpCb32;
   }
 };
-
-Decoder.prototype.YCbCrToRGBA = function() {
-  var pY = this.currentY;
-  var pCb = this.currentCb;
-  var pCr = this.currentCr;
-  var pRGBA = this.currentRGBA.data;
-
-  // Chroma values are the same for each block of 4 pixels, so we proccess
-  // 2 lines at a time, 2 neighboring pixels each.
-  // I wish we could use 32bit writes to the RGBA buffer instead of writing
-  // each byte separately, but we need the automatic clamping of the RGBA
-  // buffer.
-
-  var yIndex1 = 0;
-  var yIndex2 = this.codedWidth;
-  var yNext2Lines = this.codedWidth + (this.codedWidth - this.width);
-
-  var cIndex = 0;
-  var cNextLine = this.halfWidth - (this.width >> 1);
-
-  var rgbaIndex1 = 0;
-  var rgbaIndex2 = this.width * 4;
-  var rgbaNext2Lines = this.width * 4;
-
-  var cols = this.width >> 1;
-  var rows = this.height >> 1;
-
-  var y;
-  var cb;
-  var cr;
-  var r;
-  var g;
-  var b;
-
-  for (var row = 0; row < rows; row++) {
-    for (var col = 0; col < cols; col++) {
-      cb = pCb[cIndex];
-      cr = pCr[cIndex];
-      cIndex++;
-
-      r = (cr + ((cr * 103) >> 8)) - 179;
-      g = ((cb * 88) >> 8) - 44 + ((cr * 183) >> 8) - 91;
-      b = (cb + ((cb * 198) >> 8)) - 227;
-
-      // Line 1
-      var y1 = pY[yIndex1++];
-      var y2 = pY[yIndex1++];
-      pRGBA[rgbaIndex1] = y1 + r;
-      pRGBA[rgbaIndex1 + 1] = y1 - g;
-      pRGBA[rgbaIndex1 + 2] = y1 + b;
-      pRGBA[rgbaIndex1 + 4] = y2 + r;
-      pRGBA[rgbaIndex1 + 5] = y2 - g;
-      pRGBA[rgbaIndex1 + 6] = y2 + b;
-      rgbaIndex1 += 8;
-
-      // Line 2
-      var y3 = pY[yIndex2++];
-      var y4 = pY[yIndex2++];
-      pRGBA[rgbaIndex2] = y3 + r;
-      pRGBA[rgbaIndex2 + 1] = y3 - g;
-      pRGBA[rgbaIndex2 + 2] = y3 + b;
-      pRGBA[rgbaIndex2 + 4] = y4 + r;
-      pRGBA[rgbaIndex2 + 5] = y4 - g;
-      pRGBA[rgbaIndex2 + 6] = y4 + b;
-      rgbaIndex2 += 8;
-    }
-
-    yIndex1 += yNext2Lines;
-    yIndex2 += yNext2Lines;
-    rgbaIndex1 += rgbaNext2Lines;
-    rgbaIndex2 += rgbaNext2Lines;
-    cIndex += cNextLine;
-  }
-};
-
 
 Decoder.prototype.decodeSlice = function(slice) {
   this.sliceBegin = true;
@@ -506,9 +410,9 @@ Decoder.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb) {
   var last;
 
   // We use 32bit writes here
-  var dY = this.currentY32;
-  var dCb = this.currentCb32;
-  var dCr = this.currentCr32;
+  var dY = this.Y32;
+  var dCb = this.Cb32;
+  var dCr = this.Cr32;
 
   // Luminance
   width = this.codedWidth;
@@ -845,7 +749,7 @@ Decoder.prototype.decodeBlock = function(block) {
   var scan;
 
   if (block < 4) {
-    destArray = this.currentY;
+    destArray = this.Y;
     scan = this.codedWidth - 8;
     destIndex = (this.mbRow * this.codedWidth + this.mbCol) << 4;
     if ((block & 1) != 0) {
@@ -855,7 +759,7 @@ Decoder.prototype.decodeBlock = function(block) {
       destIndex += this.codedWidth << 3;
     }
   } else {
-    destArray = (block == 4) ? this.currentCb : this.currentCr;
+    destArray = (block == 4) ? this.Cb : this.Cr;
     scan = (this.codedWidth >> 1) - 8;
     destIndex = ((this.mbRow * this.codedWidth) << 2) + (this.mbCol << 3);
   }
@@ -863,101 +767,26 @@ Decoder.prototype.decodeBlock = function(block) {
   if (this.macroblockIntra) {
     // Overwrite (no prediction)
     if (n == 1) {
-      this.copyValueToDestination((this.blockData[0] + 128) >> 8, destArray, destIndex, scan);
+      utils.copyValueToDestination((this.blockData[0] + 128) >> 8, destArray, destIndex, scan);
       this.blockData[0] = 0;
     } else {
       this.IDCT();
-      this.copyBlockToDestination(this.blockData, destArray, destIndex, scan);
+      utils.copyBlockToDestination(this.blockData, destArray, destIndex, scan);
       this.blockData.set(this.zeroBlockData);
     }
   } else {
     // Add data to the predicted macroblock
     if (n == 1) {
-      this.addValueToDestination((this.blockData[0] + 128) >> 8, destArray, destIndex, scan);
+      utils.addValueToDestination((this.blockData[0] + 128) >> 8, destArray, destIndex, scan);
       this.blockData[0] = 0;
     } else {
       this.IDCT();
-      this.addBlockToDestination(this.blockData, destArray, destIndex, scan);
+      utils.addBlockToDestination(this.blockData, destArray, destIndex, scan);
       this.blockData.set(this.zeroBlockData);
     }
   }
 
   n = 0;
-};
-
-Decoder.prototype.copyBlockToDestination = function(blockData, destArray, destIndex, scan) {
-  for (var n = 0; n < 64; n += 8, destIndex += scan + 8) {
-    destArray[destIndex + 0] = blockData[n + 0];
-    destArray[destIndex + 1] = blockData[n + 1];
-    destArray[destIndex + 2] = blockData[n + 2];
-    destArray[destIndex + 3] = blockData[n + 3];
-    destArray[destIndex + 4] = blockData[n + 4];
-    destArray[destIndex + 5] = blockData[n + 5];
-    destArray[destIndex + 6] = blockData[n + 6];
-    destArray[destIndex + 7] = blockData[n + 7];
-  }
-};
-
-Decoder.prototype.addBlockToDestination = function(blockData, destArray, destIndex, scan) {
-  for (var n = 0; n < 64; n += 8, destIndex += scan + 8) {
-    destArray[destIndex + 0] += blockData[n + 0];
-    destArray[destIndex + 1] += blockData[n + 1];
-    destArray[destIndex + 2] += blockData[n + 2];
-    destArray[destIndex + 3] += blockData[n + 3];
-    destArray[destIndex + 4] += blockData[n + 4];
-    destArray[destIndex + 5] += blockData[n + 5];
-    destArray[destIndex + 6] += blockData[n + 6];
-    destArray[destIndex + 7] += blockData[n + 7];
-  }
-};
-
-Decoder.prototype.copyValueToDestination = function(value, destArray, destIndex, scan) {
-  for (var n = 0; n < 64; n += 8, destIndex += scan + 8) {
-    destArray[destIndex + 0] = value;
-    destArray[destIndex + 1] = value;
-    destArray[destIndex + 2] = value;
-    destArray[destIndex + 3] = value;
-    destArray[destIndex + 4] = value;
-    destArray[destIndex + 5] = value;
-    destArray[destIndex + 6] = value;
-    destArray[destIndex + 7] = value;
-  }
-};
-
-Decoder.prototype.addValueToDestination = function(value, destArray, destIndex, scan) {
-  for (var n = 0; n < 64; n += 8, destIndex += scan + 8) {
-    destArray[destIndex + 0] += value;
-    destArray[destIndex + 1] += value;
-    destArray[destIndex + 2] += value;
-    destArray[destIndex + 3] += value;
-    destArray[destIndex + 4] += value;
-    destArray[destIndex + 5] += value;
-    destArray[destIndex + 6] += value;
-    destArray[destIndex + 7] += value;
-  }
-};
-
-// Clamping version for shitty browsers (IE) that don't support Uint8ClampedArray
-Decoder.prototype.copyBlockToDestinationClamp = function(blockData, destArray, destIndex, scan) {
-  var n = 0;
-  for (var i = 0; i < 8; i++) {
-    for (var j = 0; j < 8; j++) {
-      var p = blockData[n++];
-      destArray[destIndex++] = p > 255 ? 255 : (p < 0 ? 0 : p);
-    }
-    destIndex += scan;
-  }
-};
-
-Decoder.prototype.addBlockToDestinationClamp = function(blockData, destArray, destIndex, scan) {
-  var n = 0;
-  for (var i = 0; i < 8; i++) {
-    for (var j = 0; j < 8; j++) {
-      var p = blockData[n++] + destArray[destIndex];
-      destArray[destIndex++] = p > 255 ? 255 : (p < 0 ? 0 : p);
-    }
-    destIndex += scan;
-  }
 };
 
 Decoder.prototype.IDCT = function() {
@@ -1065,18 +894,12 @@ Decoder.prototype.findStartCode = function(code) {
   return BitReader.NOT_FOUND;
 };
 
-Decoder.prototype.fillArray = function(a, value) {
-  for (var i = 0, length = a.length; i < length; i++) {
-    a[i] = value;
-  }
-};
 
-
-var DECODE_SKIP_OUTPUT = 1;
 var PICTURE_RATE = [
     0.000, 23.976, 24.000, 25.000, 29.970, 30.000, 50.000, 59.940,
     60.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000
-  ];
+];
+
 var ZIG_ZAG = new Uint8Array([
     0, 1, 8, 16, 9, 2, 3, 10,
     17, 24, 32, 25, 18, 11, 4, 5,
@@ -1086,7 +909,8 @@ var ZIG_ZAG = new Uint8Array([
     29, 22, 15, 23, 30, 37, 44, 51,
     58, 59, 52, 45, 38, 31, 39, 46,
     53, 60, 61, 54, 47, 55, 62, 63
-  ]);
+]);
+
 var DEFAULT_INTRA_QUANT_MATRIX = new Uint8Array([
     8, 16, 19, 22, 26, 27, 29, 34,
     16, 16, 22, 24, 27, 29, 34, 37,
@@ -1096,7 +920,8 @@ var DEFAULT_INTRA_QUANT_MATRIX = new Uint8Array([
     26, 27, 29, 32, 35, 40, 48, 58,
     26, 27, 29, 34, 38, 46, 56, 69,
     27, 29, 35, 38, 46, 56, 69, 83
-  ]);
+]);
+
 var DEFAULT_NON_INTRA_QUANT_MATRIX = new Uint8Array([
     16, 16, 16, 16, 16, 16, 16, 16,
     16, 16, 16, 16, 16, 16, 16, 16,
@@ -1106,7 +931,8 @@ var DEFAULT_NON_INTRA_QUANT_MATRIX = new Uint8Array([
     16, 16, 16, 16, 16, 16, 16, 16,
     16, 16, 16, 16, 16, 16, 16, 16,
     16, 16, 16, 16, 16, 16, 16, 16
-  ]);
+]);
+
 var PREMULTIPLIER_MATRIX = new Uint8Array([
     32, 44, 42, 38, 32, 25, 17, 9,
     44, 62, 58, 52, 44, 35, 24, 12,
@@ -1116,7 +942,8 @@ var PREMULTIPLIER_MATRIX = new Uint8Array([
     25, 35, 33, 30, 25, 20, 14, 7,
     17, 24, 23, 20, 17, 14, 9, 5,
     9, 12, 12, 10, 9, 7, 5, 2
-  ]);
+]);
+
 var MACROBLOCK_ADDRESS_INCREMENT = new Int16Array([
     1 * 3, 2 * 3, 0, //   0
     3 * 3, 4 * 3, 0, //   1  0
@@ -1193,13 +1020,15 @@ var MACROBLOCK_ADDRESS_INCREMENT = new Int16Array([
     0, 0, 24, //  72  0000 0100 001.
     0, 0, 23, //  73  0000 0100 010.
     0, 0, 22 //  74  0000 0100 011.
-  ]);
+]);
+
 var MACROBLOCK_TYPE_I = new Int8Array([
     1 * 3, 2 * 3, 0, //   0
     -1, 3 * 3, 0, //   1  0
     0, 0, 0x01, //   2  1.
     0, 0, 0x11 //   3  01.
-  ]);
+]);
+
 var MACROBLOCK_TYPE_P = new Int8Array([
     1 * 3, 2 * 3, 0, //  0
     3 * 3, 4 * 3, 0, //  1  0
@@ -1215,7 +1044,8 @@ var MACROBLOCK_TYPE_P = new Int8Array([
     0, 0, 0x1a, // 11  00010.
     0, 0, 0x01, // 12  00011.
     0, 0, 0x11 // 13  000001.
-  ]);
+]);
+
 var MACROBLOCK_TYPE_B = new Int8Array([
     1 * 3, 2 * 3, 0, //  0
     3 * 3, 5 * 3, 0, //  1  0
@@ -1239,7 +1069,8 @@ var MACROBLOCK_TYPE_B = new Int8Array([
     0, 0, 0x11, // 19  000001.
     0, 0, 0x16, // 20  000010.
     0, 0, 0x1a // 21  000011.
-  ]);
+]);
+
 var CODE_BLOCK_PATTERN = new Int16Array([
     2 * 3, 1 * 3, 0, //   0
     3 * 3, 6 * 3, 0, //   1  1
@@ -1367,7 +1198,8 @@ var CODE_BLOCK_PATTERN = new Int16Array([
     0, 0, 27, // 123  0000 0001 1.
     0, 0, 59, // 124  0000 0010 0.
     0, 0, 31 // 125  0000 0011 1.
-  ]);
+]);
+
 var MOTION = new Int16Array([
     1 * 3, 2 * 3, 0, //   0
     4 * 3, 3 * 3, 0, //   1  0
@@ -1436,7 +1268,8 @@ var MOTION = new Int16Array([
     0, 0, -15, //  64  0000 0011 011.
     0, 0, -11, //  65  0000 0100 011.
     0, 0, -13 //  66  0000 0011 111.
-  ]);
+]);
+
 var DCT_DC_SIZE_LUMINANCE = new Int8Array([
     2 * 3, 1 * 3, 0, //   0
     6 * 3, 5 * 3, 0, //   1  1
@@ -1456,7 +1289,8 @@ var DCT_DC_SIZE_LUMINANCE = new Int8Array([
     17 * 3, -1, 0, //  15  1111 11
     0, 0, 7, //  16  1111 10.
     0, 0, 8 //  17  1111 110.
-  ]);
+]);
+
 var DCT_DC_SIZE_CHROMINANCE = new Int8Array([
     2 * 3, 1 * 3, 0, //   0
     4 * 3, 3 * 3, 0, //   1  1
@@ -1476,7 +1310,8 @@ var DCT_DC_SIZE_CHROMINANCE = new Int8Array([
     17 * 3, -1, 0, //  15  1111 111
     0, 0, 7, //  16  1111 110.
     0, 0, 8 //  17  1111 1110.
-  ]);
+]);
+
 var DCT_COEFF = new Int32Array([
     1 * 3, 2 * 3, 0, //   0
     4 * 3, 3 * 3, 0, //   1  0
@@ -1702,7 +1537,10 @@ var DCT_COEFF = new Int32Array([
     0, 0, 0x0d02, // 221  0000 0000 0001 1000.
     0, 0, 0x0c02, // 222  0000 0000 0001 1001.
     0, 0, 0x0f02 // 223  0000 0000 0001 0110.
-  ]);
+]);
+
+var DECODE_SKIP_OUTPUT = 1;
+
 var PICTURE_TYPE_I = 1;
 var PICTURE_TYPE_P = 2;
 var PICTURE_TYPE_B = 3;
