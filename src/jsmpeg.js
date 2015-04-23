@@ -33,7 +33,6 @@ var jsmpeg = module.exports = function(url, options) {
   this.videoLoader = new VideoLoader();
   this.autoplay = !!options.autoplay;
   this.preload = options.preload || 'auto';
-  // this.timeout = options.timeout;
   this.loop = !!options.loop;
 
   this.decoder = new Decoder(this.canvas);

@@ -34,7 +34,6 @@ var jsmpeg = module.exports = function(url, options) {
   this.videoLoader = new VideoLoader();
   this.autoplay = !!options.autoplay;
   this.preload = options.preload || 'auto';
-  // this.timeout = options.timeout;
   this.loop = !!options.loop;
 
   this.decoder = new Decoder(this.canvas);
@@ -3177,7 +3176,7 @@ var inherits = require('util').inherits;
 var VideoLoader = module.exports = function() {
   this.videos = [];
   this.index = 0;
-  this.queue = [];
+  // this.queue = [];
   this.loading = false;
 };
 
@@ -3227,10 +3226,6 @@ VideoLoader.prototype.add = function(urls) {
       };
       this.videos.push(video);
     }
-    if (video.status !== 'loading' && video.status !== 'loaded') {
-      // video.status = 'loading';
-      this.queue.push(url);
-    }
   }
 };
 
@@ -3243,12 +3238,7 @@ VideoLoader.prototype._load = function(url, timeout) {
       video.data = request.response;
       video.status = 'loaded';
       this.emit('load', video);
-
-      if (this.queue.length > 0) {
-        this.load();
-      } else {
-        this.loading = false;
-      }
+      this.load();
     }
   }).bind(this);
 
@@ -3268,11 +3258,11 @@ VideoLoader.prototype._load = function(url, timeout) {
 };
 
 VideoLoader.prototype.load = function(timeout) {
-  if (this.queue.length > 0 && !this.findByStatus('loading')) {
-    this.loading = true;
-    var url = this.queue[0];
-    this.queue = this.queue.slice(1);
-    this._load(url, timeout);
+  if (!this.findByStatus('loading')) {
+    var video = this.findByStatus('declared');
+    if (video) {
+      this._load(video.url, timeout);
+    }
   }
 };
 
