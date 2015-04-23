@@ -10,7 +10,6 @@ var VideoLoader = module.exports = function() {
 
 inherits(VideoLoader, EventEmitter2);
 
-
 VideoLoader.prototype.findByIndex = function(index) {
   for (var j = 0; j < this.videos.length; j++) {
     var video = this.videos[j];
@@ -21,11 +20,20 @@ VideoLoader.prototype.findByIndex = function(index) {
   return null;
 };
 
-
 VideoLoader.prototype.findByURL = function(url) {
   for (var j = 0; j < this.videos.length; j++) {
     var video = this.videos[j];
     if (video.url === url) {
+      return video;
+    }
+  }
+  return null;
+};
+
+VideoLoader.prototype.findByStatus = function(status) {
+  for (var j = 0; j < this.videos.length; j++) {
+    var video = this.videos[j];
+    if (video.status === status) {
       return video;
     }
   }
@@ -42,23 +50,15 @@ VideoLoader.prototype.add = function(urls) {
         index: this.videos.length,
         url: url,
         data: null,
-        loaded: false
+        status: 'declared'
       };
       this.videos.push(video);
     }
-    if (!video.loaded) {
+    if (video.status !== 'loading' && video.status !== 'loaded') {
+      // video.status = 'loading';
       this.queue.push(url);
     }
   }
-};
-
-VideoLoader.prototype.getNext = function() {
-  var video = this.findByIndex(this.index);
-  if (video) {
-    this.index++;
-    return video.data;
-  }
-  return null;
 };
 
 VideoLoader.prototype._load = function(url) {
@@ -67,8 +67,8 @@ VideoLoader.prototype._load = function(url) {
     if (request.readyState == request.DONE && request.status == 200) {
       var video = this.findByURL(url);
       video.data = request.response;
-      video.loaded = true;
-      this.emit('load');
+      video.status = 'loaded';
+      this.emit('load', video);
 
       if (this.queue.length > 0) {
         this.load();
@@ -78,13 +78,15 @@ VideoLoader.prototype._load = function(url) {
     }
   }).bind(this);
 
+  var video = this.findByURL(url);
+  video.status = 'loading';
   request.open('GET', url);
   request.responseType = "arraybuffer";
   request.send();
 };
 
 VideoLoader.prototype.load = function() {
-  if (this.queue.length > 0) {
+  if (this.queue.length > 0 && !this.findByStatus('loading')) {
     this.loading = true;
     var url = this.queue[0];
     this.queue = this.queue.slice(1);

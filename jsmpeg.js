@@ -27,6 +27,7 @@ var jsmpeg = module.exports = function(url, options) {
   options = options || {};
 
   this.url = url;
+  this.videoIndex = 0;
   this.el = this.canvas = options.canvas || document.createElement('canvas');
   this.ctx = this.canvas.getContext('2d');
 
@@ -71,9 +72,9 @@ jsmpeg.prototype.doPreload = function() {
     }
   }
 
-  this.videoLoader.once('load', (function() {
+  this.videoLoader.once('load', (function(video) {
     this.emit('preload');
-    this.loadVideoBuffer(this.videoLoader.getNext());
+    this.loadVideo(video);
   }.bind(this)));
   this.videoLoader.load();
 };
@@ -81,8 +82,8 @@ jsmpeg.prototype.doPreload = function() {
 
 jsmpeg.prototype.load = function() {
   if (!this.playing) {
-    this.videoLoader.once('load', (function() {
-      this.loadVideoBuffer(this.videoLoader.getNext());
+    this.videoLoader.once('load', (function(video) {
+      this.loadVideo(video);
     }.bind(this)));
   }
   this.videoLoader.add(this.url);
@@ -90,8 +91,9 @@ jsmpeg.prototype.load = function() {
 };
 
 
-jsmpeg.prototype.loadVideoBuffer = function(buffer) {
-  this.decoder.loadBuffer(buffer);
+jsmpeg.prototype.loadVideo = function(video) {
+  this.videoIndex = video.index;
+  this.decoder.loadBuffer(video.data);
 
   // Load the first frame
   this.processFrame();
@@ -116,8 +118,7 @@ jsmpeg.prototype.pause = function() {
 };
 
 jsmpeg.prototype.stop = function() {
-  // this.videoLoader.index = 0;
-  // this.loadVideoBuffer(this.videoLoader.getNext());
+  this.loadVideo(this.videoLoader.findByIndex(0));
   this.playing = false;
 };
 
@@ -129,28 +130,28 @@ jsmpeg.prototype.processFrame = function() {
       0, 0, this.canvas.width, this.canvas.height
     );
   } else {
-    this.stop();
-
-    var video = this.videoLoader.getNext();
-    if (video) {
-      this.loadVideoBuffer(video);
-      this.play();
-    } else {
-      if (this.loop && !this.videoLoader.loading) {
-        this.videoLoader.index = 0;
-        this.loadVideoBuffer(this.videoLoader.getNext());
-        this.play();
+    var video = this.videoLoader.findByIndex(this.videoIndex+1);
+    if (!video) {
+      if (this.loop) {
+        video = this.videoLoader.findByIndex(0);
+        this.loadVideo(video);
       } else {
-        if (this.videoLoader.loading) {
-          this.videoLoader.once('load', (function() {
-            var video = this.videoLoader.getNext();
-            if (video) {
-              this.loadVideoBuffer(video);
-              this.play();
-            }
-          }.bind(this)));
+        this.pause();
+      }
+    } else {
+      if (video.status === 'loaded') {
+        this.loadVideo(video);
+      } else {
+        this.pause();
+        this.videoLoader.once('load', (function(video) {
+          if (video) {
+            this.loadVideo(video);
+            this.play();
+          }
+        }.bind(this)));
+        if (video.status != 'loading') {
+          this.load();
         }
-        return;
       }
     }
   }
@@ -3176,7 +3177,6 @@ var VideoLoader = module.exports = function() {
 
 inherits(VideoLoader, EventEmitter2);
 
-
 VideoLoader.prototype.findByIndex = function(index) {
   for (var j = 0; j < this.videos.length; j++) {
     var video = this.videos[j];
@@ -3187,11 +3187,20 @@ VideoLoader.prototype.findByIndex = function(index) {
   return null;
 };
 
-
 VideoLoader.prototype.findByURL = function(url) {
   for (var j = 0; j < this.videos.length; j++) {
     var video = this.videos[j];
     if (video.url === url) {
+      return video;
+    }
+  }
+  return null;
+};
+
+VideoLoader.prototype.findByStatus = function(status) {
+  for (var j = 0; j < this.videos.length; j++) {
+    var video = this.videos[j];
+    if (video.status === status) {
       return video;
     }
   }
@@ -3208,23 +3217,15 @@ VideoLoader.prototype.add = function(urls) {
         index: this.videos.length,
         url: url,
         data: null,
-        loaded: false
+        status: 'declared'
       };
       this.videos.push(video);
     }
-    if (!video.loaded) {
+    if (video.status !== 'loading' && video.status !== 'loaded') {
+      // video.status = 'loading';
       this.queue.push(url);
     }
   }
-};
-
-VideoLoader.prototype.getNext = function() {
-  var video = this.findByIndex(this.index);
-  if (video) {
-    this.index++;
-    return video.data;
-  }
-  return null;
 };
 
 VideoLoader.prototype._load = function(url) {
@@ -3233,8 +3234,8 @@ VideoLoader.prototype._load = function(url) {
     if (request.readyState == request.DONE && request.status == 200) {
       var video = this.findByURL(url);
       video.data = request.response;
-      video.loaded = true;
-      this.emit('load');
+      video.status = 'loaded';
+      this.emit('load', video);
 
       if (this.queue.length > 0) {
         this.load();
@@ -3244,13 +3245,15 @@ VideoLoader.prototype._load = function(url) {
     }
   }).bind(this);
 
+  var video = this.findByURL(url);
+  video.status = 'loading';
   request.open('GET', url);
   request.responseType = "arraybuffer";
   request.send();
 };
 
 VideoLoader.prototype.load = function() {
-  if (this.queue.length > 0) {
+  if (this.queue.length > 0 && !this.findByStatus('loading')) {
     this.loading = true;
     var url = this.queue[0];
     this.queue = this.queue.slice(1);
