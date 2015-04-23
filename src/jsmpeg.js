@@ -33,6 +33,7 @@ var jsmpeg = module.exports = function(url, options) {
   this.videoLoader = new VideoLoader();
   this.autoplay = !!options.autoplay;
   this.preload = options.preload || 'auto';
+  // this.timeout = options.timeout;
   this.loop = !!options.loop;
 
   this.decoder = new Decoder(this.canvas);
@@ -42,7 +43,7 @@ var jsmpeg = module.exports = function(url, options) {
     this.load();
   } else {
     if (this.preload != 'none') {
-      this.doPreload();
+      this.doPreload(options.preloadTimeout);
     }
   }
 };
@@ -50,7 +51,7 @@ var jsmpeg = module.exports = function(url, options) {
 inherits(jsmpeg, EventEmitter2);
 
 
-jsmpeg.prototype.doPreload = function() {
+jsmpeg.prototype.doPreload = function(timeout) {
   if (this.preload === 'meta') {
     // ignore
     return;
@@ -75,7 +76,12 @@ jsmpeg.prototype.doPreload = function() {
     this.emit('preload');
     this.loadVideo(video);
   }.bind(this)));
-  this.videoLoader.load();
+  if (typeof timeout !== 'undefined') {
+    this.videoLoader.once('timeout', (function() {
+      this.emit('preloadTimeout');
+    }).bind(this));
+  }
+  this.videoLoader.load(timeout);
 };
 
 

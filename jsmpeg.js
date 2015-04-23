@@ -34,6 +34,7 @@ var jsmpeg = module.exports = function(url, options) {
   this.videoLoader = new VideoLoader();
   this.autoplay = !!options.autoplay;
   this.preload = options.preload || 'auto';
+  // this.timeout = options.timeout;
   this.loop = !!options.loop;
 
   this.decoder = new Decoder(this.canvas);
@@ -43,7 +44,7 @@ var jsmpeg = module.exports = function(url, options) {
     this.load();
   } else {
     if (this.preload != 'none') {
-      this.doPreload();
+      this.doPreload(options.preloadTimeout);
     }
   }
 };
@@ -51,7 +52,7 @@ var jsmpeg = module.exports = function(url, options) {
 inherits(jsmpeg, EventEmitter2);
 
 
-jsmpeg.prototype.doPreload = function() {
+jsmpeg.prototype.doPreload = function(timeout) {
   if (this.preload === 'meta') {
     // ignore
     return;
@@ -76,7 +77,12 @@ jsmpeg.prototype.doPreload = function() {
     this.emit('preload');
     this.loadVideo(video);
   }.bind(this)));
-  this.videoLoader.load();
+  if (typeof timeout !== 'undefined') {
+    this.videoLoader.once('timeout', (function() {
+      this.emit('preloadTimeout');
+    }).bind(this));
+  }
+  this.videoLoader.load(timeout);
 };
 
 
@@ -3228,8 +3234,9 @@ VideoLoader.prototype.add = function(urls) {
   }
 };
 
-VideoLoader.prototype._load = function(url) {
+VideoLoader.prototype._load = function(url, timeout) {
   var request = new XMLHttpRequest();
+
   request.onreadystatechange = (function() {
     if (request.readyState == request.DONE && request.status == 200) {
       var video = this.findByURL(url);
@@ -3245,6 +3252,14 @@ VideoLoader.prototype._load = function(url) {
     }
   }).bind(this);
 
+  if (typeof timeout !== 'undefined') {
+    request.timeout = timeout;
+
+    request.ontimeout = (function() {
+      var video = this.findByURL(url);
+      this.emit('timeout', video);
+    }).bind(this);
+  }
   var video = this.findByURL(url);
   video.status = 'loading';
   request.open('GET', url);
@@ -3252,12 +3267,12 @@ VideoLoader.prototype._load = function(url) {
   request.send();
 };
 
-VideoLoader.prototype.load = function() {
+VideoLoader.prototype.load = function(timeout) {
   if (this.queue.length > 0 && !this.findByStatus('loading')) {
     this.loading = true;
     var url = this.queue[0];
     this.queue = this.queue.slice(1);
-    this._load(url);
+    this._load(url, timeout);
   }
 };
 

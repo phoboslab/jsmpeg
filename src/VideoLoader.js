@@ -61,8 +61,9 @@ VideoLoader.prototype.add = function(urls) {
   }
 };
 
-VideoLoader.prototype._load = function(url) {
+VideoLoader.prototype._load = function(url, timeout) {
   var request = new XMLHttpRequest();
+
   request.onreadystatechange = (function() {
     if (request.readyState == request.DONE && request.status == 200) {
       var video = this.findByURL(url);
@@ -78,6 +79,14 @@ VideoLoader.prototype._load = function(url) {
     }
   }).bind(this);
 
+  if (typeof timeout !== 'undefined') {
+    request.timeout = timeout;
+
+    request.ontimeout = (function() {
+      var video = this.findByURL(url);
+      this.emit('timeout', video);
+    }).bind(this);
+  }
   var video = this.findByURL(url);
   video.status = 'loading';
   request.open('GET', url);
@@ -85,11 +94,11 @@ VideoLoader.prototype._load = function(url) {
   request.send();
 };
 
-VideoLoader.prototype.load = function() {
+VideoLoader.prototype.load = function(timeout) {
   if (this.queue.length > 0 && !this.findByStatus('loading')) {
     this.loading = true;
     var url = this.queue[0];
     this.queue = this.queue.slice(1);
-    this._load(url);
+    this._load(url, timeout);
   }
 };
