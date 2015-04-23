@@ -23,42 +23,74 @@ var getTime = function() {
   return Date.now();
 };
 
-var jsmpeg = module.exports = function(url, opts) {
-  opts = opts || {};
+var jsmpeg = module.exports = function(url, options) {
+  options = options || {};
 
   this.url = url;
-  this.load();
-
-  this.canvas = opts.canvas || document.createElement('canvas');
+  this.el = this.canvas = options.canvas || document.createElement('canvas');
   this.ctx = this.canvas.getContext('2d');
 
-  this.autoplay = !!opts.autoplay;
-  this.loop = !!opts.loop;
-
-  // this.lateTime = 0;
-  this.firstSequenceHeader = 0;
-  // this.targetTime = 0;
+  this.videoLoader = new VideoLoader();
+  this.autoplay = !!options.autoplay;
+  this.preload = options.preload || 'auto';
+  this.loop = !!options.loop;
 
   this.decoder = new Decoder(this.canvas);
   this.time = 0;
+
+  if (this.autoplay) {
+    this.load();
+  } else {
+    if (this.preload != 'none') {
+      this.doPreload();
+    }
+  }
 };
 
 inherits(jsmpeg, EventEmitter2);
 
 
-jsmpeg.prototype.scheduleDecoding = function() {
-  this.decoder.decodePicture();
-};
+jsmpeg.prototype.doPreload = function() {
+  if (this.preload === 'meta') {
+    // ignore
+    return;
+  }
 
-jsmpeg.prototype.load = function() {
-  this.videoLoader = new VideoLoader(this.url);
+  if (this.preload === 'auto') {
+    // load all videos
+    this.videoLoader.add(this.url);
+  }
+
+  if (typeof this.preload === 'number') {
+    if (this.preload > 0 && Array.isArray(this.url)) {
+      var urls = this.url.slice(0, this.preload);
+      this.videoLoader.add(urls);
+    } else {
+      // load all videos
+      this.videoLoader.add(this.url);
+    }
+  }
+
   this.videoLoader.once('load', (function() {
-    this.loadBuffer(this.videoLoader.getNext());
+    this.emit('preload');
+    this.loadVideoBuffer(this.videoLoader.getNext());
   }.bind(this)));
   this.videoLoader.load();
 };
 
-jsmpeg.prototype.loadBuffer = function(buffer) {
+
+jsmpeg.prototype.load = function() {
+  if (!this.playing) {
+    this.videoLoader.once('load', (function() {
+      this.loadVideoBuffer(this.videoLoader.getNext());
+    }.bind(this)));
+  }
+  this.videoLoader.add(this.url);
+  this.videoLoader.load();
+};
+
+
+jsmpeg.prototype.loadVideoBuffer = function(buffer) {
   this.decoder.loadBuffer(buffer);
 
   // Load the first frame
@@ -75,6 +107,7 @@ jsmpeg.prototype.play = function() {
   }
 
   this.playing = true;
+  this.load();
   this.animate();
 };
 
@@ -83,8 +116,8 @@ jsmpeg.prototype.pause = function() {
 };
 
 jsmpeg.prototype.stop = function() {
-  this.videoLoader.index = 0;
-  this.loadBuffer(this.videoLoader.getNext());
+  // this.videoLoader.index = 0;
+  // this.loadVideoBuffer(this.videoLoader.getNext());
   this.playing = false;
 };
 
@@ -100,19 +133,19 @@ jsmpeg.prototype.processFrame = function() {
 
     var video = this.videoLoader.getNext();
     if (video) {
-      this.loadBuffer(video);
+      this.loadVideoBuffer(video);
       this.play();
     } else {
       if (this.loop && !this.videoLoader.loading) {
         this.videoLoader.index = 0;
-        this.loadBuffer(this.videoLoader.getNext());
+        this.loadVideoBuffer(this.videoLoader.getNext());
         this.play();
       } else {
         if (this.videoLoader.loading) {
           this.videoLoader.once('load', (function() {
             var video = this.videoLoader.getNext();
             if (video) {
-              this.loadBuffer(video);
+              this.loadVideoBuffer(video);
               this.play();
             }
           }.bind(this)));
@@ -3134,48 +3167,94 @@ var MACROBLOCK_TYPE_TABLES = [
 var EventEmitter2 = require('eventemitter2').EventEmitter2;
 var inherits = require('util').inherits;
 
-var VideoLoader = module.exports = function(urls) {
+var VideoLoader = module.exports = function() {
   this.videos = [];
   this.index = 0;
-  if (urls) {
-    urls = Array.isArray(urls) ? urls : [urls];
-  }
-  this.queue = urls || [];
+  this.queue = [];
   this.loading = false;
 };
 
 inherits(VideoLoader, EventEmitter2);
 
-VideoLoader.prototype.getNext = function() {
-  if (this.index < this.videos.length) {
-    var video = this.videos[this.index];
-    this.index++;
-    return video;
+
+VideoLoader.prototype.findByIndex = function(index) {
+  for (var j = 0; j < this.videos.length; j++) {
+    var video = this.videos[j];
+    if (video.index === index) {
+      return video;
+    }
   }
   return null;
 };
 
-VideoLoader.prototype.load = function() {
+
+VideoLoader.prototype.findByURL = function(url) {
+  for (var j = 0; j < this.videos.length; j++) {
+    var video = this.videos[j];
+    if (video.url === url) {
+      return video;
+    }
+  }
+  return null;
+};
+
+VideoLoader.prototype.add = function(urls) {
+  urls = Array.isArray(urls) ? urls : [urls];
+  for (var i = 0; i < urls.length; i++) {
+    var url = urls[i];
+    var video = this.findByURL(url);
+    if (!video) {
+      video = {
+        index: this.videos.length,
+        url: url,
+        data: null,
+        loaded: false
+      };
+      this.videos.push(video);
+    }
+    if (!video.loaded) {
+      this.queue.push(url);
+    }
+  }
+};
+
+VideoLoader.prototype.getNext = function() {
+  var video = this.findByIndex(this.index);
+  if (video) {
+    this.index++;
+    return video.data;
+  }
+  return null;
+};
+
+VideoLoader.prototype._load = function(url) {
   var request = new XMLHttpRequest();
   request.onreadystatechange = (function() {
     if (request.readyState == request.DONE && request.status == 200) {
-      this.videos.push(request.response);
+      var video = this.findByURL(url);
+      video.data = request.response;
+      video.loaded = true;
       this.emit('load');
-      if (this.queue.length > 1) {
-        this.queue = this.queue.slice(1);
+
+      if (this.queue.length > 0) {
         this.load();
       } else {
-        this.emit('loadingComplete');
         this.loading = false;
       }
     }
   }).bind(this);
 
+  request.open('GET', url);
+  request.responseType = "arraybuffer";
+  request.send();
+};
+
+VideoLoader.prototype.load = function() {
   if (this.queue.length > 0) {
     this.loading = true;
-    request.open('GET', this.queue[0]);
-    request.responseType = "arraybuffer";
-    request.send();
+    var url = this.queue[0];
+    this.queue = this.queue.slice(1);
+    this._load(url);
   }
 };
 

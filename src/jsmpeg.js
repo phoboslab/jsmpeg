@@ -22,42 +22,74 @@ var getTime = function() {
   return Date.now();
 };
 
-var jsmpeg = module.exports = function(url, opts) {
-  opts = opts || {};
+var jsmpeg = module.exports = function(url, options) {
+  options = options || {};
 
   this.url = url;
-  this.load();
-
-  this.canvas = opts.canvas || document.createElement('canvas');
+  this.el = this.canvas = options.canvas || document.createElement('canvas');
   this.ctx = this.canvas.getContext('2d');
 
-  this.autoplay = !!opts.autoplay;
-  this.loop = !!opts.loop;
-
-  // this.lateTime = 0;
-  this.firstSequenceHeader = 0;
-  // this.targetTime = 0;
+  this.videoLoader = new VideoLoader();
+  this.autoplay = !!options.autoplay;
+  this.preload = options.preload || 'auto';
+  this.loop = !!options.loop;
 
   this.decoder = new Decoder(this.canvas);
   this.time = 0;
+
+  if (this.autoplay) {
+    this.load();
+  } else {
+    if (this.preload != 'none') {
+      this.doPreload();
+    }
+  }
 };
 
 inherits(jsmpeg, EventEmitter2);
 
 
-jsmpeg.prototype.scheduleDecoding = function() {
-  this.decoder.decodePicture();
-};
+jsmpeg.prototype.doPreload = function() {
+  if (this.preload === 'meta') {
+    // ignore
+    return;
+  }
 
-jsmpeg.prototype.load = function() {
-  this.videoLoader = new VideoLoader(this.url);
+  if (this.preload === 'auto') {
+    // load all videos
+    this.videoLoader.add(this.url);
+  }
+
+  if (typeof this.preload === 'number') {
+    if (this.preload > 0 && Array.isArray(this.url)) {
+      var urls = this.url.slice(0, this.preload);
+      this.videoLoader.add(urls);
+    } else {
+      // load all videos
+      this.videoLoader.add(this.url);
+    }
+  }
+
   this.videoLoader.once('load', (function() {
-    this.loadBuffer(this.videoLoader.getNext());
+    this.emit('preload');
+    this.loadVideoBuffer(this.videoLoader.getNext());
   }.bind(this)));
   this.videoLoader.load();
 };
 
-jsmpeg.prototype.loadBuffer = function(buffer) {
+
+jsmpeg.prototype.load = function() {
+  if (!this.playing) {
+    this.videoLoader.once('load', (function() {
+      this.loadVideoBuffer(this.videoLoader.getNext());
+    }.bind(this)));
+  }
+  this.videoLoader.add(this.url);
+  this.videoLoader.load();
+};
+
+
+jsmpeg.prototype.loadVideoBuffer = function(buffer) {
   this.decoder.loadBuffer(buffer);
 
   // Load the first frame
@@ -74,6 +106,7 @@ jsmpeg.prototype.play = function() {
   }
 
   this.playing = true;
+  this.load();
   this.animate();
 };
 
@@ -82,8 +115,8 @@ jsmpeg.prototype.pause = function() {
 };
 
 jsmpeg.prototype.stop = function() {
-  this.videoLoader.index = 0;
-  this.loadBuffer(this.videoLoader.getNext());
+  // this.videoLoader.index = 0;
+  // this.loadVideoBuffer(this.videoLoader.getNext());
   this.playing = false;
 };
 
@@ -99,19 +132,19 @@ jsmpeg.prototype.processFrame = function() {
 
     var video = this.videoLoader.getNext();
     if (video) {
-      this.loadBuffer(video);
+      this.loadVideoBuffer(video);
       this.play();
     } else {
       if (this.loop && !this.videoLoader.loading) {
         this.videoLoader.index = 0;
-        this.loadBuffer(this.videoLoader.getNext());
+        this.loadVideoBuffer(this.videoLoader.getNext());
         this.play();
       } else {
         if (this.videoLoader.loading) {
           this.videoLoader.once('load', (function() {
             var video = this.videoLoader.getNext();
             if (video) {
-              this.loadBuffer(video);
+              this.loadVideoBuffer(video);
               this.play();
             }
           }.bind(this)));
