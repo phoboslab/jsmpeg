@@ -4,8 +4,6 @@ var inherits = require('util').inherits;
 var VideoLoader = module.exports = function() {
   this.videos = [];
   this.index = 0;
-  // this.queue = [];
-  this.loading = false;
 };
 
 inherits(VideoLoader, EventEmitter2);
