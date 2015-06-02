@@ -45,7 +45,7 @@ player.seekToFrame(1200, true); // Seek to frame 1200 exactly
 // Passing 'seekable: true' also populates the total frame count and duration
 // of the video
 
-console.log('Duration: '+player.duration+' seconds ('+frames+' player.frameCount)')
+console.log('Duration: '+player.duration+' seconds ('+player.frameCount+' frames)')
 
 
 
