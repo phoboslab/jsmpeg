@@ -65,7 +65,6 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 
 jsmpeg.prototype.waitForIntraFrame = true;
 jsmpeg.prototype.socketBufferSize = 512 * 1024; // 512kb each
-jsmpeg.prototype.onlostconnection = null;
 
 jsmpeg.prototype.initSocketClient = function( client ) {
 	this.buffer = new BitReader(new ArrayBuffer(this.socketBufferSize));
@@ -324,7 +323,7 @@ jsmpeg.prototype.loadCallback = function(file) {
 	this.firstSequenceHeader = this.buffer.index;
 	this.decodeSequenceHeader();
 
-	// Calculate the duration. This only works if the video is seekable and we have a frame count.
+	// Calculate the duration. This only works if the video is seekable and we have a frame count
 	this.duration = this.frameCount / this.pictureRate;
 
 	// Load the first frame
