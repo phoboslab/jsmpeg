@@ -268,6 +268,8 @@ jsmpeg.prototype.stopRecording = function() {
 // Loading via Ajax
 
 jsmpeg.prototype.intraFrames = [];
+jsmpeg.prototype.frameCount = 0;
+jsmpeg.prototype.duration = 0;
 	
 jsmpeg.prototype.load = function( url ) {
 	this.url = url;
@@ -320,6 +322,9 @@ jsmpeg.prototype.loadCallback = function(file) {
 	this.firstSequenceHeader = this.buffer.index;
 	this.decodeSequenceHeader();
 
+	// Calculate the duration. This only works if the video is seekable and we have a frame count.
+	this.duration = this.frameCount / this.pictureRate;
+
 	// Load the first frame
 	this.nextFrame();
 	
@@ -334,7 +339,9 @@ jsmpeg.prototype.loadCallback = function(file) {
 
 jsmpeg.prototype.collectIntraFrames = function() {
 	// Loop through the whole buffer and collect all intraFrames to build our seek index.
-	for( var frame = 0; this.findStartCode(START_PICTURE) !== BitReader.NOT_FOUND; frame++ ) {
+	// We also keep track of total frame count here
+	var frame;
+	for( frame = 0; this.findStartCode(START_PICTURE) !== BitReader.NOT_FOUND; frame++ ) {
 
 		// Check if the found picture is an intra frame and remember the position
 		this.buffer.advance(10); // skip temporalReference
@@ -343,6 +350,8 @@ jsmpeg.prototype.collectIntraFrames = function() {
 			this.intraFrames.push({frame: frame, index: this.buffer.index - 13});
 		}
 	}
+
+	this.frameCount = frame;
 };
 
 jsmpeg.prototype.seekToFrame = function(seekFrame, seekExact) {	
@@ -428,31 +437,6 @@ jsmpeg.prototype.fillArray = function(a, value) {
 	for( var i = 0, length = a.length; i < length; i++ ) {
 		a[i] = value;
 	}
-};
-
-jsmpeg.prototype.cachedFrameCount = 0;
-jsmpeg.prototype.calculateFrameCount = function() {
-	if( !this.buffer || this.cachedFrameCount ) { 
-		return this.cachedFrameCount; 
-	}
-	
-	// Remember the buffer position, so we can rewind to the beginning and 
-	// reset to the current position afterwards
-	var currentPlaybackIndex = this.buffer.index,
-		frames = 0;
-	
-	this.buffer.index = 0;
-	while( this.findStartCode(START_PICTURE) !== BitReader.NOT_FOUND ) {
-		frames++;
-	}
-	this.buffer.index = currentPlaybackIndex;
-	
-	this.cachedFrameCount = frames;
-	return frames;
-};
-
-jsmpeg.prototype.calculateDuration = function() {
-	return this.calculateFrameCount() * (1/this.pictureRate);
 };
 
 

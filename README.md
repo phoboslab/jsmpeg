@@ -42,20 +42,18 @@ player.seekToTime(20); // Seek to intra frame before 20sec
 player.seekToFrame(1200, true); // Seek to frame 1200 exactly
 
 
+// Passing 'seekable: true' also populates the total frame count and duration
+// of the video
+
+console.log('Duration: '+player.duration+' seconds ('+frames+' player.frameCount)')
+
+
+
 // An 'onload' callback can be specified in the 'options' argument
 var mpegLoaded = function( player ) {
 	console.log('Loaded', player);
-	
-	// calculateFrameCount() and calculateDuration() can only be called
-	// after the mpeg has been fully loaded. So this callback is the ideal
-	// place to fetch this info
-	var frames = player.calculateFrameCount(),
-		duration = player.calculateDuration();
-		
-	console.log('Duration: '+duration+' seconds ('+frames+' frames)');
 };
-
-var player = new jsmpeg('file.mpeg', {onload:mpegLoaded});
+var player = new jsmpeg('file.mpeg', {onload: mpegLoaded});
 
 // If you don't use 'autoplay' and don't explicitly call .play(), you can get individual
 // video frames (a canvas element) like so:
