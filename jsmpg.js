@@ -268,6 +268,8 @@ jsmpeg.prototype.stopRecording = function() {
 // Loading via Ajax
 
 jsmpeg.prototype.intraFrames = [];
+jsmpeg.prototype.currentFrame = -1;
+jsmpeg.prototype.currentTime = 0;
 jsmpeg.prototype.frameCount = 0;
 jsmpeg.prototype.duration = 0;
 	
@@ -368,14 +370,16 @@ jsmpeg.prototype.seekToFrame = function(seekFrame, seekExact) {
 	}
 
 	this.buffer.index = target.index;
+	this.currentFrame = target.frame-1;
 
 	// If we're seeking to the exact frame, we may have to decode some more frames before
 	// the one we want
 	if( seekExact ) {
-		for( var currentFrame = target.frame; currentFrame < seekFrame-1; currentFrame++ ) {
+		for( var frame = target.frame; frame < seekFrame-1; frame++ ) {
 			this.decodePicture(DECODE_SKIP_OUTPUT);
 			this.findStartCode(START_PICTURE);
 		}
+		this.currentFrame = seekFrame-1;
 	}
 
 	// Decode and display the picture we have seeked to
@@ -399,6 +403,7 @@ jsmpeg.prototype.pause = function(file) {
 };
 
 jsmpeg.prototype.stop = function(file) {
+	this.currentFrame = -1;
 	if( this.buffer ) {
 		this.buffer.index = this.firstSequenceHeader;
 	}
@@ -636,6 +641,9 @@ jsmpeg.prototype.forwardF = 0;
 
 
 jsmpeg.prototype.decodePicture = function(skipOutput) {
+	this.currentFrame++;
+	this.currentTime = this.currentFrame / this.pictureRate;
+
 	this.buffer.advance(10); // skip temporalReference
 	this.pictureCodingType = this.buffer.getBits(3);
 	this.buffer.advance(16); // skip vbv_delay
