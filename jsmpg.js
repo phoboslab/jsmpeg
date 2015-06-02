@@ -30,6 +30,7 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 	this.canvas = opts.canvas || document.createElement('canvas');
 	this.autoplay = !!opts.autoplay;
 	this.loop = !!opts.loop;
+	this.seekable = !!opts.seekable;
 	this.externalLoadCallback = opts.onload || null;
 	this.externalDecodeCallback = opts.ondecodeframe || null;
 	this.externalFinishedCallback = opts.onfinished || null;
@@ -265,6 +266,8 @@ jsmpeg.prototype.stopRecording = function() {
 
 // ----------------------------------------------------------------------------
 // Loading via Ajax
+
+jsmpeg.prototype.intraFrames = [];
 	
 jsmpeg.prototype.load = function( url ) {
 	this.url = url;
@@ -307,6 +310,11 @@ jsmpeg.prototype.updateLoaderGL = function( ev ) {
 	
 jsmpeg.prototype.loadCallback = function(file) {
 	this.buffer = new BitReader(file);
+
+	if( this.seekable ) {
+		this.collectIntraFrames();
+		this.buffer.index = 0;
+	}
 	
 	this.findStartCode(START_SEQUENCE);
 	this.firstSequenceHeader = this.buffer.index;
@@ -322,6 +330,52 @@ jsmpeg.prototype.loadCallback = function(file) {
 	if( this.externalLoadCallback ) {
 		this.externalLoadCallback(this);
 	}
+};
+
+jsmpeg.prototype.collectIntraFrames = function() {
+	// Loop through the whole buffer and collect all intraFrames to build our seek index.
+	for( var frame = 0; this.findStartCode(START_PICTURE) !== BitReader.NOT_FOUND; frame++ ) {
+
+		// Check if the found picture is an intra frame and remember the position
+		this.buffer.advance(10); // skip temporalReference
+		if( this.buffer.getBits(3) == PICTURE_TYPE_I ) {
+			// Remember index 13 bits back, before temporalReference and picture type
+			this.intraFrames.push({frame: frame, index: this.buffer.index - 13});
+		}
+	}
+};
+
+jsmpeg.prototype.seekToFrame = function(seekFrame, seekExact) {	
+	var target = null;
+	for( var i = 1; i < this.intraFrames.length; i++ ) {
+		if( this.intraFrames[i].frame > seekFrame ) {
+			target = this.intraFrames[i-1];
+			break;
+		}
+	}
+
+	if( !target ) {
+		return false;
+	}
+
+	this.buffer.index = target.index;
+
+	// If we're seeking to the exact frame, we may have to decode some more frames before
+	// the one we want
+	if( seekExact ) {
+		for( var currentFrame = target.frame; currentFrame < seekFrame-1; currentFrame++ ) {
+			this.decodePicture(DECODE_SKIP_OUTPUT);
+			this.findStartCode(START_PICTURE);
+		}
+	}
+
+	// Decode and display the picture we have seeked to
+	this.decodePicture();
+	return true;
+};
+
+jsmpeg.prototype.seekToTime = function(time, seekExact) {
+	this.seekToFrame( (time * this.pictureRate)|0, seekExact );
 };
 
 jsmpeg.prototype.play = function(file) {

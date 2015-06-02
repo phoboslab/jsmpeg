@@ -25,6 +25,23 @@ player.play();
 player.stop();
 
 
+// If you pass 'seekable: true' in the options, you can seek to a specific frame
+// or time in the video.
+
+var player = new jsmpeg('file.mpeg', {canvas: canvas, seekable: true});
+
+player.seekToFrame(1200); // Seek to intra frame before frame 1200
+player.seekToTime(20); // Seek to intra frame before 20sec
+
+// seekToFrame() and seekToTime() only seek to the closest, previous intra frame by
+// default. If you want to seek to the exact frame or time, pass 'true' as second
+// parameter.
+// Depending on the input video, this can be potentially slow, as jsmpeg has
+// to decode all frames between the previous intra frame and the seek target
+
+player.seekToFrame(1200, true); // Seek to frame 1200 exactly
+
+
 // An 'onload' callback can be specified in the 'options' argument
 var mpegLoaded = function( player ) {
 	console.log('Loaded', player);
