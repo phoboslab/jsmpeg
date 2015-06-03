@@ -374,7 +374,7 @@ jsmpeg.prototype.seekToFrame = function(seekFrame, seekExact) {
 	// If we're seeking to the exact frame, we may have to decode some more frames before
 	// the one we want
 	if( seekExact ) {
-		for( var frame = target.frame; frame < seekFrame-1; frame++ ) {
+		for( var frame = target.frame; frame < seekFrame; frame++ ) {
 			this.decodePicture(DECODE_SKIP_OUTPUT);
 			this.findStartCode(START_PICTURE);
 		}
