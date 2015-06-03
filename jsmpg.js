@@ -355,17 +355,15 @@ jsmpeg.prototype.collectIntraFrames = function() {
 	this.frameCount = frame;
 };
 
-jsmpeg.prototype.seekToFrame = function(seekFrame, seekExact) {	
-	var target = null;
-	for( var i = 1; i < this.intraFrames.length; i++ ) {
-		if( this.intraFrames[i].frame > seekFrame ) {
-			target = this.intraFrames[i-1];
-			break;
-		}
+jsmpeg.prototype.seekToFrame = function(seekFrame, seekExact) {
+	if( seekFrame < 0 || seekFrame >= this.frameCount || !this.intraFrames.length ) {
+		return false;
 	}
 
-	if( !target ) {
-		return false;
+	// Find the last intra frame before or equal to seek frame
+	var target = null;
+	for( var i = 0; i < this.intraFrames.length && this.intraFrames[i].frame <= seekFrame; i++ ) {
+		target = this.intraFrames[i];
 	}
 
 	this.buffer.index = target.index;
