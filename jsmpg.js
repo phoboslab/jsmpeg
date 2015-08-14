@@ -14,6 +14,14 @@
 // Inspired by "MPEG Decoder in Java ME" by Nokia:
 // http://www.developer.nokia.com/Community/Wiki/MPEG_decoder_in_Java_ME
 
+function BufferOutOfBoundsError(message) {
+	this.name = 'BufferOutOfBounds';
+	this.message = message || 'Buffer is out of bounds';
+	this.stack = (new Error()).stack;
+}
+BufferOutOfBoundsError.prototype = Object.create(Error.prototype);
+BufferOutOfBoundsError.prototype.constructor = BufferOutOfBoundsError;
+
 
 var requestAnimFrame = (function(){
 	return window.requestAnimationFrame ||
@@ -40,7 +48,9 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 	this.blockData = new Int32Array(64);
 	this.zeroBlockData = new Int32Array(64);
 	this.fillArray(this.zeroBlockData, 0);
-	
+	this.bytesLoaded = 0;
+	this.isBuffering = false;
+
 	// use WebGL for YCbCrToRGBA conversion if possible (much faster)
 	if( !opts.forceCanvas2D && this.initWebGL() ) {
 		this.renderFrame = this.renderFrameGL;
@@ -277,9 +287,22 @@ jsmpeg.prototype.load = function( url ) {
 
 	var request = new XMLHttpRequest();
 	var that = this;
-	request.onreadystatechange = function() {		
-		if( request.readyState == request.DONE && request.status == 200 ) {
-			that.loadCallback(request.response);
+	var lastByteOnChunk = Math.min(this.bytesLoaded + this.socketBufferSize, this.bytesTotal) - 1;
+	request.onreadystatechange = function() {
+		if( request.readyState == request.DONE && (request.status == 200 || request.status == 206)) {
+			if (that.bytesLoaded === 0){
+				var contentRange = request.getResponseHeader('Content-Range').toLowerCase();
+				that.bytesTotal = parseFloat(contentRange.split('/').pop());
+				that.loadCallback(request.response);
+			} else {
+				that.buffer.append(request.response);
+			}
+			that.isBuffering = false;
+			that.bytesLoaded = lastByteOnChunk + 1;
+
+			if (that.bytesLoaded < that.bytesTotal) {
+				that.load(url);
+			}
 		}
 	};
 
@@ -289,6 +312,7 @@ jsmpeg.prototype.load = function( url ) {
 
 	request.open('GET', url);
 	request.responseType = "arraybuffer";
+	request.setRequestHeader('Range', 'bytes=' + this.bytesLoaded + '-' + lastByteOnChunk);
 	request.send();
 };
 
@@ -465,36 +489,51 @@ jsmpeg.prototype.now = function() {
 jsmpeg.prototype.nextFrame = function() {
 	if( !this.buffer ) { return; }
 
-	var frameStart = this.now();
-	while(true) {
-		var code = this.buffer.findNextMPEGStartCode();
-		
-		if( code == START_SEQUENCE ) {
-			this.decodeSequenceHeader();
-		}
-		else if( code == START_PICTURE ) {
-			if( this.playing ) {
-				this.scheduleNextFrame();
-			}
-			this.decodePicture();
-			this.benchDecodeTimes += this.now() - frameStart;
-			return this.canvas;
-		}
-		else if( code == BitReader.NOT_FOUND ) {
-			this.stop(); // Jump back to the beginning
+	if (this.isBuffering) {
+		if (this.playing) {
+			this.scheduleNextFrame();
+		};
+		return;
+	}
 
-			if( this.externalFinishedCallback ) {
-				this.externalFinishedCallback(this);
-			}
+	try {
+		var frameStart = this.now();
+		while(true) {
+			var code = this.buffer.findNextMPEGStartCode();
 
-			// Only loop if we found a sequence header
-			if( this.loop && this.sequenceStarted ) {
-				this.play();
+			if( code == START_SEQUENCE ) {
+				this.decodeSequenceHeader();
 			}
-			return null;
+			else if( code == START_PICTURE ) {
+				if( this.playing ) {
+					this.scheduleNextFrame();
+				}
+				this.decodePicture();
+				this.benchDecodeTimes += this.now() - frameStart;
+				return this.canvas;
+			}
+			else if( code == BitReader.NOT_FOUND ) {
+				this.stop(); // Jump back to the beginning
+
+				if( this.externalFinishedCallback ) {
+					this.externalFinishedCallback(this);
+				}
+
+				// Only loop if we found a sequence header
+				if( this.loop && this.sequenceStarted ) {
+					this.play();
+				}
+				return null;
+			}
+			else {
+				// ignore (GROUP, USER_DATA, EXTENSION, SLICES...)
+			}
 		}
-		else {
-			// ignore (GROUP, USER_DATA, EXTENSION, SLICES...)
+	}catch(e){
+		if(e.name === 'BufferOutOfBounds'){
+			this.isBuffering = true;
+		} else {
+			throw e;
 		}
 	}
 };
@@ -951,6 +990,7 @@ jsmpeg.prototype.motionFwH = 0;
 jsmpeg.prototype.motionFwV = 0;
 jsmpeg.prototype.motionFwHPrev = 0;
 jsmpeg.prototype.motionFwVPrev = 0;
+jsmpeg.prototype.bytesTotal = Number.MAX_VALUE;
 
 jsmpeg.prototype.decodeMacroblock = function() {
 	// Decode macroblock_address_increment
@@ -2408,6 +2448,19 @@ var BitReader = function(arrayBuffer) {
 	this.index = 0;
 };
 
+BitReader.prototype.append = function(arrayBuffer){
+	var originalLength = this.bytes.length;
+	var newBytes = new Uint8Array(arrayBuffer);
+
+	var result = new Uint8Array(originalLength + newBytes.length);
+	result.set(this.bytes);
+	result.set(newBytes, originalLength);
+
+	this.bytes = result;
+	this.length = this.bytes.length;
+	this.writePos = this.bytes.length;
+}
+
 BitReader.NOT_FOUND = -1;
 
 BitReader.prototype.findNextMPEGStartCode = function() {	
@@ -2467,13 +2520,27 @@ BitReader.prototype.nextBits = function(count) {
 	return value;
 };
 
+BitReader.prototype.hasBits = function(count) {
+	var end = (this.index + count -1) >> 3;
+
+	return end < this.length;
+};
+
+BitReader.prototype.assertHasBits = function(count) {
+	if (!this.hasBits(count)) {
+		throw new BufferOutOfBoundsError();
+	}
+};
+
 BitReader.prototype.getBits = function(count) {
+	this.assertHasBits(count);
 	var value = this.nextBits(count);
 	this.index += count;
 	return value;
 };
 
 BitReader.prototype.advance = function(count) {
+	this.assertHasBits(count);
 	return (this.index += count);
 };
 
