@@ -14,6 +14,14 @@
 // Inspired by "MPEG Decoder in Java ME" by Nokia:
 // http://www.developer.nokia.com/Community/Wiki/MPEG_decoder_in_Java_ME
 
+function BufferOutOfBoundsError(message) {
+  this.name = 'BufferOutOfBounds';
+  this.message = message || 'Buffer is out of bounds';
+  this.stack = (new Error()).stack;
+}
+BufferOutOfBoundsError.prototype = Object.create(Error.prototype);
+BufferOutOfBoundsError.prototype.constructor = BufferOutOfBoundsError;
+
 
 var requestAnimFrame = (function(){
   return window.requestAnimationFrame ||
@@ -41,6 +49,7 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
   this.zeroBlockData = new Int32Array(64);
   this.fillArray(this.zeroBlockData, 0);
   this.bytesLoaded = 0;
+  this.isBuffering = false;
 
   // use WebGL for YCbCrToRGBA conversion if possible (much faster)
   if( !opts.forceCanvas2D && this.initWebGL() ) {
@@ -292,6 +301,7 @@ jsmpeg.prototype.load = function( url ) {
       } else {
         that.buffer.append(request.response);
       }
+      that.isBuffering = false;
       that.bytesLoaded = lastByteOnChunk + 1;
 
       if (that.bytesLoaded < that.bytesTotal) {
@@ -481,41 +491,56 @@ jsmpeg.prototype.now = function() {
   return window.performance
     ? window.performance.now()
     : Date.now();
-}
+};
 
 jsmpeg.prototype.nextFrame = function() {
   if( !this.buffer ) { return; }
 
-  var frameStart = this.now();
-  while(true) {
-    var code = this.buffer.findNextMPEGStartCode();
+  if (this.isBuffering) {
+    if (this.playing) {
+      this.scheduleNextFrame();
+    };
+    return;
+  }
 
-    if( code == START_SEQUENCE ) {
-      this.decodeSequenceHeader();
-    }
-    else if( code == START_PICTURE ) {
-      if( this.playing ) {
-        this.scheduleNextFrame();
-      }
-      this.decodePicture();
-      this.benchDecodeTimes += this.now() - frameStart;
-      return this.canvas;
-    }
-    else if( code == BitReader.NOT_FOUND ) {
-      this.stop(); // Jump back to the beginning
+  try {
+    var frameStart = this.now();
+    while(true) {
+      var code = this.buffer.findNextMPEGStartCode();
 
-      if( this.externalFinishedCallback ) {
-        this.externalFinishedCallback(this);
+      if( code == START_SEQUENCE ) {
+        this.decodeSequenceHeader();
       }
+      else if( code == START_PICTURE ) {
+        if( this.playing ) {
+          this.scheduleNextFrame();
+        }
+        this.decodePicture();
+        this.benchDecodeTimes += this.now() - frameStart;
+        return this.canvas;
+      }
+      else if( code == BitReader.NOT_FOUND ) {
+        this.stop(); // Jump back to the beginning
 
-      // Only loop if we found a sequence header
-      if( this.loop && this.sequenceStarted ) {
-        this.play();
+        if( this.externalFinishedCallback ) {
+          this.externalFinishedCallback(this);
+        }
+
+        // Only loop if we found a sequence header
+        if( this.loop && this.sequenceStarted ) {
+          this.play();
+        }
+        return null;
       }
-      return null;
+      else {
+        // ignore (GROUP, USER_DATA, EXTENSION, SLICES...)
+      }
     }
-    else {
-      // ignore (GROUP, USER_DATA, EXTENSION, SLICES...)
+  }catch(e){
+    if(e.name === 'BufferOutOfBounds'){
+      this.isBuffering = true;
+    } else {
+      throw e;
     }
   }
 };
@@ -2511,13 +2536,27 @@ BitReader.prototype.nextBits = function(count) {
   return value;
 };
 
+BitReader.prototype.hasBits = function(count) {
+  var end = (this.index + count -1) >> 3;
+
+  return end < this.length;
+};
+
+BitReader.prototype.assertHasBits = function(count) {
+  if (!this.hasBits(count)) {
+    throw new BufferOutOfBoundsError();
+  }
+};
+
 BitReader.prototype.getBits = function(count) {
+  this.assertHasBits(count);
   var value = this.nextBits(count);
   this.index += count;
   return value;
 };
 
 BitReader.prototype.advance = function(count) {
+  this.assertHasBits(count);
   return (this.index += count);
 };
 
