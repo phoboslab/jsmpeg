@@ -14,6 +14,16 @@
 // Inspired by "MPEG Decoder in Java ME" by Nokia:
 // http://www.developer.nokia.com/Community/Wiki/MPEG_decoder_in_Java_ME
 
+var repetitionCounter = 0;
+
+// Create the event
+var endEvent = new CustomEvent("ended",
+{
+	'detail':
+	{
+    	"repetitionCounter": repetitionCounter
+    }
+});
 
 var requestAnimFrame = (function(){
 	return window.requestAnimationFrame ||
@@ -393,6 +403,13 @@ jsmpeg.prototype.play = function(file) {
 	this.targetTime = this.now();
 	this.playing = true;
 	this.scheduleNextFrame();
+
+	if(this.currentFrame == -1)
+    {
+    	repetitionCounter++;
+        endEvent.detail.repetitionCounter = repetitionCounter;
+        document.dispatchEvent(endEvent);
+    }
 };
 
 jsmpeg.prototype.pause = function(file) {
