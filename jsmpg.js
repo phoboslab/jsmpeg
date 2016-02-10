@@ -283,8 +283,9 @@ jsmpeg.prototype.load = function( url ) {
 		}
 	};
 
-	request.onprogress = this.gl ? this.updateLoaderGL.bind(this)
-								 : this.updateLoader2D.bind(this);
+	request.onprogress = this.gl
+		? this.updateLoaderGL.bind(this)
+		: this.updateLoader2D.bind(this);
 
 	request.open('GET', url);
 	request.responseType = 'arraybuffer';
@@ -456,8 +457,9 @@ jsmpeg.prototype.benchDecodeTimes = 0;
 jsmpeg.prototype.benchAvgFrameTime = 0;
 
 jsmpeg.prototype.now = function() {
-	return window.performance ? window.performance.now()
-							  : Date.now();
+	return window.performance
+		? window.performance.now()
+		: Date.now();
 };
 
 jsmpeg.prototype.nextFrame = function() {
@@ -1035,8 +1037,9 @@ jsmpeg.prototype.decodeMacroblock = function() {
 	}
 
 	// Decode blocks
-	var cbp = ((this.macroblockType & 0x02) !== 0) ? this.readCode(CODE_BLOCK_PATTERN)
-												   : (this.macroblockIntra ? 0x3f : 0);
+	var cbp = ((this.macroblockType & 0x02) !== 0)
+		? this.readCode(CODE_BLOCK_PATTERN)
+		: (this.macroblockIntra ? 0x3f : 0);
 
 	for( var block = 0, mask = 0x20; block < 6; block++ ) {
 		if( (cbp & mask) !== 0 ) {
