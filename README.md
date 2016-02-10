@@ -20,6 +20,7 @@ The `file` argument accepts a URL to a .mpg file or a (yet unconnected) WebSocke
 The `options` argument to the `jsmpeg()` supports the following properties:
 
 - `benchmark` whether to log benchmark results to the browser's console
+- `progressive` whether to start playback as soon as the first frames have been loaded. Uses the new `fetch` API if available. Default `true`.
 - `canvas` the HTML Canvas element to use; jsmpeg will create its own Canvas element if none is provided
 - `autoplay` whether playback should start automatically after loading
 - `loop` whether playback is looped
