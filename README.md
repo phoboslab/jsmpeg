@@ -1,5 +1,4 @@
-jsmpeg
-==========
+# jsmpeg
 
 #### An MPEG1 Video Decoder in JavaScript ####
 
@@ -9,7 +8,44 @@ emscripten or similar. This will probably make it obsolete with the advent of as
 Some demos and more info: [phoboslab.org/log/2013/05/mpeg1-video-decoder-in-javascript](http://www.phoboslab.org/log/2013/05/mpeg1-video-decoder-in-javascript)
 
 
-### Usage ###
+## API ##
+
+
+### Constructor ###
+
+`var player = new jsmpeg(file [, options])`
+
+The `file` argument accepts a URL to a .mpg file or a (yet unconnected) WebSocket instance for streaming playback.
+
+The `options` argument to the `jsmpeg()` supports the following properties:
+
+- `benchmark` whether to log benchmark results to the browser's console
+- `canvas` the HTML Canvas element to use; jsmpeg will create its own Canvas element if none is provided
+- `autoplay` whether playback should start automatically after loading
+- `loop` whether playback is looped
+- `seekable` whether a seek-index is build during load time; neccessary for `seekToFrame` and `seekToTime` methods
+- `onload` a function that's called once, after the .mpg file has been completely loaded
+- `ondecodeframe` a function that's called after every frame that's decoded and rendered to the canvas
+- `onfinished` a function that's called when playback ends
+
+
+### Methods ###
+
+- `play()` begin playback
+- `pause()` pause playback
+- `stop()` stop playback and revert play position to the beginning
+- `seekToFrame(frame)` seek to the specified frame (Number)
+- `seekToTime(seconds)` seek to the specified time (Number)
+- `nextFrame()` if playback is paused, decode and render the next frame; returns then HTML Canvas element
+
+When live streaming, jsmpeg supports the following methods for recording the stream clientside
+- `canRecord()` returns `true` when streaming has started and recording can begin, `false` otherwise
+- `startRecording(callback)` attempts to start recording, calls the optional callback when recording started - usually when the next intraframe was received
+- `stopRecording()` stops recording and returns a `Blob` with the recorded .mpg data
+
+
+
+## Usage Examples ##
 
 ```javascript
 // Synopsis: var player = new jsmpeg(urlToFile, options);
@@ -63,6 +99,8 @@ while( (frame = player.nextFrame()) ) {
 }
 ```
 
+
+
 ### Live Streaming ###
 
 jsmpeg supports streaming live video through WebSockets. You can use ffmpeg and a nodejs server to serve the MPEG video. See this [blog post](http://phoboslab.org/log/2013/09/html5-live-video-streaming-via-websockets) for the details of setting up a server. Also have a look at the `stream-server.js` and `stream-example.html`.
@@ -99,7 +137,7 @@ a.href = window.URL.createObjectURL(blob);
 
 
 
-### Limitations ###
+## Limitations ##
 
 - Playback can only start when the file is fully loaded (when not streaming through WebSockets). I'm waiting for chunked XHR with ArrayBuffers to arrive in browsers.
 - MPEG files with B-Frames look weird - frames are not reordered. This should be relatively easy
