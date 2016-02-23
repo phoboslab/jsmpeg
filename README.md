@@ -58,7 +58,7 @@ Events are emitted on jsmpeg player instance.
 
 Example:
 
-```
+```javascript
 var player = new jsmpeg(url, opts);
 player.addEventListener('timeupdate', function(evt){
     console.log(evt.type, evt.data && evt.data.currentProgress);
@@ -110,7 +110,7 @@ console.log('Duration: '+player.duration+' seconds ('+player.frameCount+' frames
 
 // An 'onload' callback can be specified in the 'options' argument
 var mpegLoaded = function( player ) {
-	console.log('Loaded', player);
+    console.log('Loaded', player);
 };
 var player = new jsmpeg('file.mpeg', {onload: mpegLoaded});
 
@@ -118,7 +118,7 @@ var player = new jsmpeg('file.mpeg', {onload: mpegLoaded});
 // video frames (a canvas element) like so:
 var frame = null;
 while( (frame = player.nextFrame()) ) {
-	someOtherCanvasContext.drawImage(frame, 0, 0);
+    someOtherCanvasContext.drawImage(frame, 0, 0);
 }
 ```
 
@@ -142,8 +142,8 @@ To record an MPEG stream clientside in the browser jsmpeg provides the `.startRe
 
 ```javascript
 player.startRecording(function(player){
-	// Called when recording really starts; usually 
-	// when the next intra frame is received
+    // Called when recording really starts; usually 
+    // when the next intra frame is received
 });
 
 // ...
