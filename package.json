@@ -17,5 +17,10 @@
     "gulp-util": "^3.0.2",
     "gulp-rename": "^1.2.0",
     "yargs": "^1.3.3"
+  },
+  "dependencies": {
+    "gulp-jshint": "^2.0.0",
+    "gulp-wrap": "^0.11.0",
+    "jshint": "^2.9.1"
   }
 }

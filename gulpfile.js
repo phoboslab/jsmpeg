@@ -3,17 +3,23 @@ var concat = require('gulp-concat');
 var argv = require('yargs').argv;
 var uglify = require('gulp-uglify');
 var gutil = require('gulp-util');
+var wrap = require("gulp-wrap");
 var rename = require("gulp-rename");
+var jshint = require('gulp-jshint');
 
 var destination = argv.dist || 'bin/';
 
 gulp.task('scripts', function() {
     gulp.src([
+            'constants.js',
             'jsmpg.js'
         ].map(function(i){
             return 'src/'+i;
         }))
         .pipe(concat('jsmpg.js'))
+        .pipe(wrap('(function(window){ "use strict";\n<%= contents %>})(window);'))
+        .pipe(jshint())
+        .pipe(jshint.reporter('default', { verbose: true }))
         .pipe(gulp.dest(destination))
         .pipe(uglify())
         .on('error', function(error) {
