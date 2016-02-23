@@ -29,6 +29,7 @@ The `options` argument to the `jsmpeg()` supports the following properties:
 - `onload` a function that's called once, after the .mpg file has been completely loaded
 - `ondecodeframe` a function that's called after every frame that's decoded and rendered to the canvas
 - `onfinished` a function that's called when playback ends
+- `preloader` a function that is is called, while loading mpg file. Arguments: `evt.loaded` and `evt.total`. Please note, when `progressive` property is true (default) or/and window.fetch API is supported this callback is fired immediately, having both `loaded` and `total` values equal to file.contentLength. 
 
 
 ### Methods
