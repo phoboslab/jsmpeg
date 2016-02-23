@@ -47,13 +47,24 @@ When live streaming, jsmpeg supports the following methods for recording the str
 
 ### Events
 
-Events are emitted on jsmpeg instance.
+Events are emitted on jsmpeg player instance.
 
-- `play`
-- `playing`
-- `timeupdate`
-- `pause`
-- `ended`
+- `play` fires when the video has been started or is no longer paused.
+- `playing` fires when the video is playing after having been paused or stopped for buffering
+- `timeupdate` fires when the current playback position has changed. Properties: `data.currentProgress` and `data.currentTime`
+- `pause` fires when the video has been paused
+- `ended` fires when the current playlist is ended
+
+Example:
+
+```
+var player = new jsmpeg(url, opts);
+player.addEventListener('timeupdate', function(evt){
+    console.log(evt.type, evt.data && evt.data.currentProgress);
+});
+```
+
+Other events described in [w3schools HTML Audio/Video DOM Reference](http://www.w3schools.com/tags/ref_av_dom.asp) are not implemented. 
 
 
 ## Usage Examples
