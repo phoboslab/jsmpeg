@@ -30,6 +30,7 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 	this.benchmark = !!opts.benchmark;
 	this.canvas = opts.canvas || document.createElement('canvas');
 	this.autoplay = !!opts.autoplay;
+	this.preloader = opts.preloader;
 	this.wantsToPlay = this.autoplay;
 	this.loop = !!opts.loop;
 	this.seekable = !!opts.seekable;
@@ -310,7 +311,7 @@ jsmpeg.prototype.fetchReaderReceive = function(reader, result) {
 	this.lastFrameIndex =  this.findLastPictureStartCode();
 
 	// Initialize the sequence headers and start playback if we have enough data
-	// (at least 128kb) 
+	// (at least 128kb)
 	if( !this.sequenceStarted && this.buffer.writePos >= this.progressiveMinSize ) {
 		this.findStartCode(START_SEQUENCE);
 		this.firstSequenceHeader = this.buffer.index;
@@ -354,7 +355,7 @@ jsmpeg.prototype.findLastPictureStartCode = function() {
 			bufferBytes[i] == START_PICTURE &&
 			bufferBytes[i-1] == 0x01 &&
 			bufferBytes[i-2] == 0x00 &&
-			bufferBytes[i-3] == 0x00			
+			bufferBytes[i-3] == 0x00
 		) {
 			return (i-3) << 3;
 		}
@@ -366,9 +367,9 @@ jsmpeg.prototype.load = function( url ) {
 	this.url = url;
 
 	var that = this;
-	if( 
-		this.progressive && 
-		window.fetch && 
+	if(
+		this.progressive &&
+		window.fetch &&
 		window.ReadableByteStream
 	) {
 		var reqHeaders = new Headers();
@@ -380,7 +381,7 @@ jsmpeg.prototype.load = function( url ) {
 			that.buffer = new BitReader(new ArrayBuffer(contentLength));
 			that.buffer.writePos = 0;
 			that.fetchReaderPump(reader);
-        });
+		});
 	}
 	else {
 		var request = new XMLHttpRequest();
@@ -391,8 +392,9 @@ jsmpeg.prototype.load = function( url ) {
 		};
 
 		request.onprogress = this.gl
-			? this.updateLoaderGL.bind(this)
-			: this.updateLoader2D.bind(this);
+			? ( this.preloader || this.updateLoaderGL ).bind(this)
+			: ( this.preloader || this.updateLoader2D ).bind(this)
+		;
 
 		request.open('GET', url);
 		request.responseType = 'arraybuffer';
@@ -869,7 +871,7 @@ jsmpeg.prototype.decodePicture = function(skipOutput) {
 
 	// Record this frame, if the recorder wants it
 	if (this.recordFrameFromCurrentBuffer) {
-	this.recordFrameFromCurrentBuffer();
+		this.recordFrameFromCurrentBuffer();
 	}
 
 
