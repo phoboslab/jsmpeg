@@ -790,7 +790,9 @@ jsmpeg.prototype.decodePicture = function(skipOutput) {
 	this.buffer.rewind(32);
 
 	// Record this frame, if the recorder wants it
+	if (this.recordFrameFromCurrentBuffer) {
 	this.recordFrameFromCurrentBuffer();
+	}
 
 
 	if( skipOutput !== DECODE_SKIP_OUTPUT ) {
