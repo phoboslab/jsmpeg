@@ -381,6 +381,10 @@ jsmpeg.prototype.load = function( url ) {
 			that.buffer = new BitReader(new ArrayBuffer(contentLength));
 			that.buffer.writePos = 0;
 			that.fetchReaderPump(reader);
+			that.preloader({
+				loaded: contentLength,
+				total: contentLength
+			});
 		});
 	}
 	else {
