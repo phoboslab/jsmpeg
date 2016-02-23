@@ -563,7 +563,7 @@ jsmpeg.prototype.benchDecodeTimes = 0;
 jsmpeg.prototype.benchAvgFrameTime = 0;
 
 jsmpeg.prototype.now = function() {
-	return window.performance
+	return window.performance && window.performance.now
 		? window.performance.now()
 		: Date.now();
 };
