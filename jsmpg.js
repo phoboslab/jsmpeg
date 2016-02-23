@@ -37,6 +37,12 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 	this.externalDecodeCallback = opts.ondecodeframe || null;
 	this.externalFinishedCallback = opts.onfinished || null;
 
+	this.registry = []; // (add|remove|dispatch)Event registry
+	this.timer = null; // timeprogress setTimeout
+	this.duration = null; //
+	this.currentTime = null; //
+	this.paused = true;
+
 	this.customIntraQuantMatrix = new Uint8Array(64);
 	this.customNonIntraQuantMatrix = new Uint8Array(64);
 	this.blockData = new Int32Array(64);
@@ -495,13 +501,26 @@ jsmpeg.prototype.play = function() {
 	if( this.playing ) { return; }
 	this.targetTime = this.now();
 	this.playing = true;
+	this.paused = !this.playing;
 	this.wantsToPlay = true;
 	this.scheduleNextFrame();
+	this.dispatchEvent('playing');
+	this.dispatchEvent('play');
+
+	var _this = this;
+	var duration = this.calculateDuration();
+	this.timer = setInterval(function(){
+		var progress = _this.calculateProgress();
+		_this.dispatchEvent('timeupdate', { currentTime: (progress * duration), currentProgress: progress });
+	}, 25);
 };
 
 jsmpeg.prototype.pause = function() {
 	this.playing = false;
+	this.paused = !this.playing;
 	this.wantsToPlay = false;
+	clearInterval(this.timer)
+	this.dispatchEvent('pause');
 };
 
 jsmpeg.prototype.stop = function() {
@@ -515,6 +534,8 @@ jsmpeg.prototype.stop = function() {
 		this.client = null;
 	}
 	this.wantsToPlay = false;
+	clearInterval(this.timer)
+	this.dispatchEvent('ended');
 };
 
 
@@ -547,7 +568,64 @@ jsmpeg.prototype.fillArray = function(a, value) {
 	}
 };
 
+jsmpeg.prototype.cachedFrameCount = 0;
+jsmpeg.prototype.calculateFrameCount = function() {
+	if( !this.buffer || this.cachedFrameCount ) {
+		return this.cachedFrameCount;
+	}
 
+	// Remember the buffer position, so we can rewind to the beginning and
+	// reset to the current position afterwards
+	var currentPlaybackIndex = this.buffer.index,
+		frames = 0;
+
+	this.buffer.index = 0; // TODO: review reseting buffer.index here
+	while( this.findStartCode(START_PICTURE) !== BitReader.NOT_FOUND ) {
+		frames++;
+	}
+	this.buffer.index = currentPlaybackIndex;
+
+	this.cachedFrameCount = frames;
+	return frames;
+};
+
+jsmpeg.prototype.calculateDuration = function() {
+	var duration = this.duration = this.calculateFrameCount() * (1/this.pictureRate);
+	return duration;
+};
+
+jsmpeg.prototype.calculateProgress = function() {
+	var octa = 0.125; //8bit
+	var progress = (this.buffer.index / this.buffer.length * octa) || 0;
+	this.currentTime = this.duration * progress;
+	return progress;
+};
+
+jsmpeg.prototype.dispatchEvent = function(type, data) {
+	var registry = this.registry,
+		i = registry.length
+	;
+	while (i--) {
+		var event = registry[i];
+		if (event.type == type) {
+			event.callback.call(this, { type: type, data: data, target: this.canvas })
+		}
+	}
+};
+
+jsmpeg.prototype.addEventListener = function(type, callback/*, capture*/) {
+	this.registry.push({type: type, callback: callback})
+};
+
+jsmpeg.prototype.removeEventListener = function(type, callback) {
+	var registry = this.registry,
+		i = registry.length
+	;
+	while (i--) {
+		var event = registry[i];
+		event.type == type && event.callback === callback && registry.splice(i, 1);
+	}
+};
 
 // ----------------------------------------------------------------------------
 // Sequence Layer
