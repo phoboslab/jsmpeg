@@ -1,6 +1,7 @@
-# jsmpeg
+jsmpeg
+==========
 
-#### An MPEG1 Video Decoder in JavaScript ####
+#### An MPEG1 Video Decoder in JavaScript
 
 jsmpeg is a MPEG1 Decoder, written in JavaScript. It's "hand ported", i.e. not compiled with
 emscripten or similar. This will probably make it obsolete with the advent of asmjs.
@@ -8,10 +9,10 @@ emscripten or similar. This will probably make it obsolete with the advent of as
 Some demos and more info: [phoboslab.org/log/2013/05/mpeg1-video-decoder-in-javascript](http://www.phoboslab.org/log/2013/05/mpeg1-video-decoder-in-javascript)
 
 
-## API ##
+## API
 
 
-### Constructor ###
+### Constructor
 
 `var player = new jsmpeg(file [, options])`
 
@@ -30,7 +31,7 @@ The `options` argument to the `jsmpeg()` supports the following properties:
 - `onfinished` a function that's called when playback ends
 
 
-### Methods ###
+### Methods
 
 - `play()` begin playback
 - `pause()` pause playback
@@ -44,9 +45,18 @@ When live streaming, jsmpeg supports the following methods for recording the str
 - `startRecording(callback)` attempts to start recording, calls the optional callback when recording started - usually when the next intraframe was received
 - `stopRecording()` stops recording and returns a `Blob` with the recorded .mpg data
 
+### Events
+
+Events are emitted on jsmpeg instance.
+
+- `play`
+- `playing`
+- `timeupdate`
+- `pause`
+- `ended`
 
 
-## Usage Examples ##
+## Usage Examples
 
 ```javascript
 // Synopsis: var player = new jsmpeg(urlToFile, options);
@@ -102,7 +112,7 @@ while( (frame = player.nextFrame()) ) {
 
 
 
-### Live Streaming ###
+### Live Streaming
 
 jsmpeg supports streaming live video through WebSockets. You can use ffmpeg and a nodejs server to serve the MPEG video. See this [blog post](http://phoboslab.org/log/2013/09/html5-live-video-streaming-via-websockets) for the details of setting up a server. Also have a look at the `stream-server.js` and `stream-example.html`.
 
@@ -114,7 +124,7 @@ var client = new WebSocket( 'ws://example.com:8084/' );
 var player = new jsmpeg(client, {canvas:canvas});
 ```
 
-###Stream Recording###
+### Stream Recording
 
 To record an MPEG stream clientside in the browser jsmpeg provides the `.startRecording(cb)` and `.stopRecording()` methods. `.stopRecording()` returns a `Blob` object that can be used to create a download link.
 
@@ -138,7 +148,7 @@ a.href = window.URL.createObjectURL(blob);
 
 
 
-## Limitations ##
+## Limitations
 
 - Playback can only start when the file is fully loaded (when not streaming through WebSockets). I'm waiting for chunked XHR with ArrayBuffers to arrive in browsers.
 - MPEG files with B-Frames look weird - frames are not reordered. This should be relatively easy
@@ -147,9 +157,11 @@ to fix, but most encoders seem to not use B-Frames at all by default.
 - Only raw MPEG video streams are supported. The decoder hates Stream Packet Headers in between
 macroblocks.
 
+## Encoding
+
 You can use [FFmpeg](http://www.ffmpeg.org/) to encode videos in a suited format. This will crop
 the size to a multiple of 2, omit B-Frames and force a raw video stream:
 
 ```
-ffmpeg -i in.mp4 -f mpeg1video -vf "crop=iw-mod(iw\,2):ih-mod(ih\,2)" -b 0 out.mpg
+ffmpeg -i source.mp4 -an -f mpeg1video -vf "crop=iw-mod(iw\,2):ih-mod(ih\,2)" -b:v 300k output.mpg
 ```
