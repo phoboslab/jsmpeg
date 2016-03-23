@@ -50,6 +50,8 @@ var streamServer = require('http').createServer( function(request, response) {
 	var params = request.url.substr(1).split('/');
 
 	if( params[0] == STREAM_SECRET ) {
+		response.connection.setTimeout(0);
+		
 		width = (params[1] || 320)|0;
 		height = (params[2] || 240)|0;
 		
