@@ -81,8 +81,10 @@ jsmpeg.prototype.initSocketClient = function() {
     this.nextPictureBuffer.chunkBegin = 0;
     this.nextPictureBuffer.lastWriteBeforeWrap = 0;
 
-    this.client.binaryType = 'arraybuffer';
-    this.client.onmessage = this.receiveSocketMessage.bind(this);
+    if (this.client) {
+        this.client.binaryType = 'arraybuffer';
+        this.client.onmessage = this.receiveSocketMessage.bind(this);
+    }
 };
 
 jsmpeg.prototype.decodeSocketHeader = function( data ) {
@@ -95,14 +97,20 @@ jsmpeg.prototype.decodeSocketHeader = function( data ) {
         data[2] === SOCKET_MAGIC_BYTES.charCodeAt(2) &&
         data[3] === SOCKET_MAGIC_BYTES.charCodeAt(3)
     ) {
-        this.width = (data[4] * 256 + data[5]);
+        this.width  = (data[4] * 256 + data[5]);
         this.height = (data[6] * 256 + data[7]);
         this.initBuffers();
     }
 };
 
+window.messages = [];
+
 jsmpeg.prototype.receiveSocketMessage = function( event ) {
     var messageData = new Uint8Array(event.data);
+    
+    window.messages.push(messageData);
+    
+    //console.log(messageData);
 
     if( !this.sequenceStarted ) {
         this.decodeSocketHeader(messageData);
@@ -119,7 +127,7 @@ jsmpeg.prototype.receiveSocketMessage = function( event ) {
 
     next.bytes.set( messageData, next.writePos );
     next.writePos += messageData.length;
-
+    
     var startCode = 0;
     while( true ) {
         startCode = next.findNextMPEGStartCode();
@@ -138,7 +146,6 @@ jsmpeg.prototype.receiveSocketMessage = function( event ) {
     }
 
     // If we are still here, we found the next picture start code!
-
 
     // Skip picture decoding until we find the first intra frame?
     if( this.waitForIntraFrame ) {
@@ -365,43 +372,88 @@ jsmpeg.prototype.load = function( url ) {
     this.url = url;
 
     var that = this;
-    if(
-        this.progressive &&
-        window.fetch &&
-        window.ReadableByteStream
-    ) {
-        var reqHeaders = new Headers();
-        reqHeaders.append('Content-Type', 'video/mpeg');
-        fetch(url, {headers: reqHeaders}).then(function (res) {
-            var contentLength = res.headers.get('Content-Length');
-            var reader = res.body.getReader();
+    
+    //if (this.progressive)
+    //{
+    //    if (window.fetch && window.ReadableByteStream)
+    //    {
+    //        var reqHeaders = new Headers();
+    //        reqHeaders.append('Content-Type', 'video/mpeg');
+    //        fetch(url, {headers: reqHeaders}).then(function (res) {
+    //            var contentLength = res.headers.get('Content-Length');
+    //            var reader = res.body.getReader();
+    //
+    //            that.buffer = new BitReader(new ArrayBuffer(contentLength));
+    //            that.buffer.writePos = 0;
+    //            that.fetchReaderPump(reader);
+    //            that.preloader({
+    //                loaded: contentLength,
+    //                total: contentLength
+    //            });
+    //        });
+    //    }
+    //    else
+    //    {
+            that.initSocketClient();
 
-            that.buffer = new BitReader(new ArrayBuffer(contentLength));
-            that.buffer.writePos = 0;
-            that.fetchReaderPump(reader);
-            that.preloader({
-                loaded: contentLength,
-                total: contentLength
-            });
-        });
-    }
-    else {
-        var request = new XMLHttpRequest();
-        request.onreadystatechange = function() {
-            if( request.readyState === request.DONE && request.status === 200 ) {
-                that.loadCallback(request.response);
+            var l = [1014,81,81,140,387,537,743,619,816,699,777,568,2268,1067,1476,1342,2084,1581,2676,2806,3080,2972,2553,1802,6420,1433,1192,735,481,452,1106,3829,2870,1851,1594,2128,6212,1814,1520,595,2171,752,522,369,441,145,104,96,7811,1496,1358,1186,1845,2515,3327,3245,2065,1668,1512,1097,620,1079,834,884,761,756,1851,4991,556,519,864,814,430,647,434,418,335,697,376,5225,760,431,939,1322,2225,2985,3319,2745,2362,1982,1349,5754,1380,1104,1371,1598,876,2050,838,627,1276,1294,1128,8551,1152,869,1177,351,1164,294,826,667,1661,2487,3578,5344,3238,2232,1720,1278,650,1043,910,1254,808,837,689,7051,1076,673,524,1612,686,532,207,1917,291,947,505,8747,1670,116,390,173,153,2681,138,886,1627,1705,1729,4061,2130,1958,2193,2384,1219,773,667,1093,1078,984,1368,959,5896,1180,1058,1176,685,1457,996,905,728,1368,782,872,8013,1594,770,712,503,991,1134,956,400,1413,1229,788,7274,1274,941,1038,804,418,313,1415,751,935,935,1012,6441,2144,3049,2600,295,541,556,716,516,539,801,636,615,665,4989,286,611,899,595,660,764,1122,915,725,1033,973,6402,1139,990,761,814,853,990,780,892,224,1113,405,7300,46,1153,199,576,511,495,1659,385,1340,1503,1801,1963,3259,3168,3657,2384,1497,1736,1080,1576,1924,1366,1664,1399,4397,1644,1498,1147,1373,1177,1224,1016,949,1062,1656,1087,4617,862,804,632,1121,1508,624,636,3034,3915,4418,3693,4736,1120,1319,1123,1001,1654,1273,627,1227,709,1133,910,8246,1357,541,787,1771,504,512,660,1728,621,758,1032,9996,971,383,1066,734,744,534,697,736,713,1715,820,9444,1008,236,360,2288,527,2039,2423,2237,2372,2200,1806,574,466,810,1126,1385,836,1085,1336,1222,1181,4867,1419,759,947,932,1302,817,696,1194,942,969,885,4884,1039,779,765,1027,864,876,1008,1021,970,724,960,4198,977,713,799,1072,718,824,883,795,869,805,927,3824,737,1207,872,673,835,952,722,863,837,908,643,4338,728,781,1214,1437,1656,2413,1922,2313,868,632,345,5336,560,718,823,710,2349,1972,1175,661,849,744,919,3842,694,381,738,324,1028,299,434,724,555,351,850,5477,752,233,607,533,290,776,312,362,722,201,835,5228,2322,544,1274,277,381,607,538,449,538,650,648,6361,1273,552,545,543,833,764,450,1518,681,645,593,6389,1071,657,1225,370,303,274,1408,576,506,541,463,6364,1003,1128,345,1567,654,809,381,426,1088,195,301,7217,1198,210,250,1190,601,173,309,406,405,383,1047,7740,1919,260,1662,1572,1514,1632,1280,1444,773,586,97,138,134,175,286,185,224,192,188,1358,161,297,242,351,273,329,246,324,329,430,254,1879,351,265,241,268,215,372,157,364,141,624,664,1930,468,461,526,531,424,385,274,387,243,352,213,2814,459,108,387,123,85,503,160,169,696,714,643,2197,1536,1045,1576,2220,2511,2334,2061,1238,960,373,660,752,618,982,468,4697,359,709,533,670,364,810,476,215,926,227,489,6261,348,313,800,270,383,236,669,95,952,250,131,6627,505,272,2615,2199,2053,2119,2141,2267,2380,2080,1487,1276,824,716,773,945,827,800,991,5378,851,820,684,971,683,1135,862,914,762,877,1037,5543,609,679,772,699,812,922,975,723,782,732,745,5888,623,849,847,903,853,803,844,769,687,995,818,5203,1258,1578,2911,1331,1610,1888,401,471,421,658,536,621,823,549,779,887,537,4283,513,744,629,567,672,361,806,496,419,845,386,5449,443,417,778,146,492,795,372,291,463,859,611,4040,735,609,587,668,552,470,357,337,545,260,266,1724,305,294,363,371,407,409,456,420,437,428,393,2765,530,354,443,222,460,287,320,348,225,564,204,3838,575,126,417,103,568,87,138,685];
+            
+            var c = 0;
+            var b = 0;
+            
+            function bang(mybytes) {
+                
+                if (mybytes) {
+                    that.receiveSocketMessage({data: mybytes});
+                    return;
+                }
+                
+                var request = new XMLHttpRequest();
+                request.onreadystatechange = function() {
+                    if( request.readyState === request.DONE && request.status === 206 ) {
+                        var r = request.response;
+                        that.receiveSocketMessage({data: r});
+
+                        c++;
+                        b = iki;
+                    }
+                    if (request.status === 416 ) {
+                        clearInterval(intId);
+                    }
+                };
+                request.open('GET', url);
+
+                var nuo = b + 1;
+                var iki = (b + l[c]);
+                
+                //console.log('nuo:', nuo, iki, [ l[c] ], c );
+                
+                request.setRequestHeader('Range', 'bytes='+nuo+'-'+iki);
+                //request.setRequestHeader('Range', 'bytes=0-4831281');
+                request.responseType = 'arraybuffer';
+                request.send();
             }
-        };
-
-        request.onprogress = this.gl
-            ? ( this.preloader || this.updateLoaderGL ).bind(this)
-            : ( this.preloader || this.updateLoader2D ).bind(this)
-        ;
-
-        request.open('GET', url);
-        request.responseType = 'arraybuffer';
-        request.send();
-    }
+            
+            var intId = setInterval(bang, 1000 / 25);
+            bang([106, 115, 109, 112, 1, 44, 0, 200 ]);
+    //    }
+    //} else {
+    //    var request = new XMLHttpRequest();
+    //    request.onreadystatechange = function() {
+    //        if( request.readyState === request.DONE && request.status === 200 ) {
+    //            that.loadCallback(request.response);
+    //        }
+    //    };
+    //
+    //    request.onprogress = this.gl
+    //        ? ( this.preloader || this.updateLoaderGL ).bind(this)
+    //        : ( this.preloader || this.updateLoader2D ).bind(this)
+    //    ;
+    //
+    //    request.open('GET', url);
+    //    request.responseType = 'arraybuffer';
+    //    request.send();
+    //}
 };
 
 jsmpeg.prototype.updateLoader2D = function( ev ) {
