@@ -30,12 +30,19 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 	this.benchmark = !!opts.benchmark;
 	this.canvas = opts.canvas || document.createElement('canvas');
 	this.autoplay = !!opts.autoplay;
+	this.preloader = opts.preloader;
 	this.wantsToPlay = this.autoplay;
 	this.loop = !!opts.loop;
 	this.seekable = !!opts.seekable;
 	this.externalLoadCallback = opts.onload || null;
 	this.externalDecodeCallback = opts.ondecodeframe || null;
 	this.externalFinishedCallback = opts.onfinished || null;
+
+	this.registry = []; // (add|remove|dispatch)Event registry
+	this.timer = null; // timeprogress setTimeout
+	this.duration = null; //
+	this.currentTime = null; //
+	this.paused = true;
 
 	this.customIntraQuantMatrix = new Uint8Array(64);
 	this.customNonIntraQuantMatrix = new Uint8Array(64);
@@ -304,7 +311,7 @@ jsmpeg.prototype.fetchReaderReceive = function(reader, result) {
 	this.lastFrameIndex =  this.findLastPictureStartCode();
 
 	// Initialize the sequence headers and start playback if we have enough data
-	// (at least 128kb) 
+	// (at least 128kb)
 	if( !this.sequenceStarted && this.buffer.writePos >= this.progressiveMinSize ) {
 		this.findStartCode(START_SEQUENCE);
 		this.firstSequenceHeader = this.buffer.index;
@@ -348,7 +355,7 @@ jsmpeg.prototype.findLastPictureStartCode = function() {
 			bufferBytes[i] == START_PICTURE &&
 			bufferBytes[i-1] == 0x01 &&
 			bufferBytes[i-2] == 0x00 &&
-			bufferBytes[i-3] == 0x00			
+			bufferBytes[i-3] == 0x00
 		) {
 			return (i-3) << 3;
 		}
@@ -360,9 +367,9 @@ jsmpeg.prototype.load = function( url ) {
 	this.url = url;
 
 	var that = this;
-	if( 
-		this.progressive && 
-		window.fetch && 
+	if(
+		this.progressive &&
+		window.fetch &&
 		window.ReadableByteStream
 	) {
 		var reqHeaders = new Headers();
@@ -374,7 +381,11 @@ jsmpeg.prototype.load = function( url ) {
 			that.buffer = new BitReader(new ArrayBuffer(contentLength));
 			that.buffer.writePos = 0;
 			that.fetchReaderPump(reader);
-        });
+			that.preloader({
+				loaded: contentLength,
+				total: contentLength
+			});
+		});
 	}
 	else {
 		var request = new XMLHttpRequest();
@@ -385,8 +396,9 @@ jsmpeg.prototype.load = function( url ) {
 		};
 
 		request.onprogress = this.gl
-			? this.updateLoaderGL.bind(this)
-			: this.updateLoader2D.bind(this);
+			? ( this.preloader || this.updateLoaderGL ).bind(this)
+			: ( this.preloader || this.updateLoader2D ).bind(this)
+		;
 
 		request.open('GET', url);
 		request.responseType = 'arraybuffer';
@@ -495,13 +507,26 @@ jsmpeg.prototype.play = function() {
 	if( this.playing ) { return; }
 	this.targetTime = this.now();
 	this.playing = true;
+	this.paused = !this.playing;
 	this.wantsToPlay = true;
 	this.scheduleNextFrame();
+	this.dispatchEvent('playing');
+	this.dispatchEvent('play');
+
+	var _this = this;
+	var duration = this.calculateDuration();
+	this.timer = setInterval(function(){
+		var progress = _this.calculateProgress();
+		_this.dispatchEvent('timeupdate', { currentTime: (progress * duration), currentProgress: progress });
+	}, 25);
 };
 
 jsmpeg.prototype.pause = function() {
 	this.playing = false;
+	this.paused = !this.playing;
 	this.wantsToPlay = false;
+	clearInterval(this.timer)
+	this.dispatchEvent('pause');
 };
 
 jsmpeg.prototype.stop = function() {
@@ -515,6 +540,8 @@ jsmpeg.prototype.stop = function() {
 		this.client = null;
 	}
 	this.wantsToPlay = false;
+	clearInterval(this.timer)
+	this.dispatchEvent('ended');
 };
 
 
@@ -547,7 +574,64 @@ jsmpeg.prototype.fillArray = function(a, value) {
 	}
 };
 
+jsmpeg.prototype.cachedFrameCount = 0;
+jsmpeg.prototype.calculateFrameCount = function() {
+	if( !this.buffer || this.cachedFrameCount ) {
+		return this.cachedFrameCount;
+	}
 
+	// Remember the buffer position, so we can rewind to the beginning and
+	// reset to the current position afterwards
+	var currentPlaybackIndex = this.buffer.index,
+		frames = 0;
+
+	this.buffer.index = 0; // TODO: review reseting buffer.index here
+	while( this.findStartCode(START_PICTURE) !== BitReader.NOT_FOUND ) {
+		frames++;
+	}
+	this.buffer.index = currentPlaybackIndex;
+
+	this.cachedFrameCount = frames;
+	return frames;
+};
+
+jsmpeg.prototype.calculateDuration = function() {
+	var duration = this.duration = this.calculateFrameCount() * (1/this.pictureRate);
+	return duration;
+};
+
+jsmpeg.prototype.calculateProgress = function() {
+	var octa = 0.125; //8bit
+	var progress = (this.buffer.index / this.buffer.length * octa) || 0;
+	this.currentTime = this.duration * progress;
+	return progress;
+};
+
+jsmpeg.prototype.dispatchEvent = function(type, data) {
+	var registry = this.registry,
+		i = registry.length
+	;
+	while (i--) {
+		var event = registry[i];
+		if (event.type == type) {
+			event.callback.call(this, { type: type, data: data, target: this.canvas })
+		}
+	}
+};
+
+jsmpeg.prototype.addEventListener = function(type, callback/*, capture*/) {
+	this.registry.push({type: type, callback: callback})
+};
+
+jsmpeg.prototype.removeEventListener = function(type, callback) {
+	var registry = this.registry,
+		i = registry.length
+	;
+	while (i--) {
+		var event = registry[i];
+		event.type == type && event.callback === callback && registry.splice(i, 1);
+	}
+};
 
 // ----------------------------------------------------------------------------
 // Sequence Layer
@@ -563,7 +647,7 @@ jsmpeg.prototype.benchDecodeTimes = 0;
 jsmpeg.prototype.benchAvgFrameTime = 0;
 
 jsmpeg.prototype.now = function() {
-	return window.performance
+	return window.performance && window.performance.now
 		? window.performance.now()
 		: Date.now();
 };
@@ -790,7 +874,9 @@ jsmpeg.prototype.decodePicture = function(skipOutput) {
 	this.buffer.rewind(32);
 
 	// Record this frame, if the recorder wants it
-	this.recordFrameFromCurrentBuffer();
+	if (this.recordFrameFromCurrentBuffer) {
+		this.recordFrameFromCurrentBuffer();
+	}
 
 
 	if( skipOutput !== DECODE_SKIP_OUTPUT ) {
@@ -2596,6 +2682,11 @@ BitReader.prototype.advance = function(count) {
 BitReader.prototype.rewind = function(count) {
 	return (this.index -= count);
 };
+
+var global_load_callback = window['__jsmpeg_global_load_callback'];
+if (global_load_callback) {
+    global_load_callback.call(this, jsmpeg);
+}
 
 })(window);
 

@@ -1,6 +1,7 @@
-# jsmpeg
+jsmpeg
+==========
 
-#### An MPEG1 Video Decoder in JavaScript ####
+#### An MPEG1 Video Decoder in JavaScript
 
 jsmpeg is a MPEG1 Decoder, written in JavaScript. It's "hand ported", i.e. not compiled with
 emscripten or similar. This will probably make it obsolete with the advent of asmjs.
@@ -8,10 +9,10 @@ emscripten or similar. This will probably make it obsolete with the advent of as
 Some demos and more info: [phoboslab.org/log/2013/05/mpeg1-video-decoder-in-javascript](http://www.phoboslab.org/log/2013/05/mpeg1-video-decoder-in-javascript)
 
 
-## API ##
+## API
 
 
-### Constructor ###
+### Constructor
 
 `var player = new jsmpeg(file [, options])`
 
@@ -28,9 +29,10 @@ The `options` argument to the `jsmpeg()` supports the following properties:
 - `onload` a function that's called once, after the .mpg file has been completely loaded
 - `ondecodeframe` a function that's called after every frame that's decoded and rendered to the canvas
 - `onfinished` a function that's called when playback ends
+- `preloader` a function that is is called, while loading mpg file. Arguments: `evt.loaded` and `evt.total`. Please note, when `progressive` property is true (default) or/and window.fetch API is supported this callback is fired immediately, having both `loaded` and `total` values equal to file.contentLength. 
 
 
-### Methods ###
+### Methods
 
 - `play()` begin playback
 - `pause()` pause playback
@@ -44,9 +46,29 @@ When live streaming, jsmpeg supports the following methods for recording the str
 - `startRecording(callback)` attempts to start recording, calls the optional callback when recording started - usually when the next intraframe was received
 - `stopRecording()` stops recording and returns a `Blob` with the recorded .mpg data
 
+### Events
+
+Events are emitted on jsmpeg player instance.
+
+- `play` fires when the video has been started or is no longer paused.
+- `playing` fires when the video is playing after having been paused or stopped for buffering
+- `timeupdate` fires when the current playback position has changed. Properties: `data.currentProgress` and `data.currentTime`
+- `pause` fires when the video has been paused
+- `ended` fires when the current playlist is ended
+
+Example:
+
+```javascript
+var player = new jsmpeg(url, opts);
+player.addEventListener('timeupdate', function(evt){
+    console.log(evt.type, evt.data && evt.data.currentProgress);
+});
+```
+
+Other events described in [w3schools HTML Audio/Video DOM Reference](http://www.w3schools.com/tags/ref_av_dom.asp) are not implemented. 
 
 
-## Usage Examples ##
+## Usage Examples
 
 ```javascript
 // Synopsis: var player = new jsmpeg(urlToFile, options);
@@ -88,7 +110,7 @@ console.log('Duration: '+player.duration+' seconds ('+player.frameCount+' frames
 
 // An 'onload' callback can be specified in the 'options' argument
 var mpegLoaded = function( player ) {
-	console.log('Loaded', player);
+    console.log('Loaded', player);
 };
 var player = new jsmpeg('file.mpeg', {onload: mpegLoaded});
 
@@ -96,13 +118,13 @@ var player = new jsmpeg('file.mpeg', {onload: mpegLoaded});
 // video frames (a canvas element) like so:
 var frame = null;
 while( (frame = player.nextFrame()) ) {
-	someOtherCanvasContext.drawImage(frame, 0, 0);
+    someOtherCanvasContext.drawImage(frame, 0, 0);
 }
 ```
 
 
 
-### Live Streaming ###
+### Live Streaming
 
 jsmpeg supports streaming live video through WebSockets. You can use ffmpeg and a nodejs server to serve the MPEG video. See this [blog post](http://phoboslab.org/log/2013/09/html5-live-video-streaming-via-websockets) for the details of setting up a server. Also have a look at the `stream-server.js` and `stream-example.html`.
 
@@ -114,14 +136,14 @@ var client = new WebSocket( 'ws://example.com:8084/' );
 var player = new jsmpeg(client, {canvas:canvas});
 ```
 
-###Stream Recording###
+### Stream Recording
 
 To record an MPEG stream clientside in the browser jsmpeg provides the `.startRecording(cb)` and `.stopRecording()` methods. `.stopRecording()` returns a `Blob` object that can be used to create a download link.
 
 ```javascript
 player.startRecording(function(player){
-	// Called when recording really starts; usually 
-	// when the next intra frame is received
+    // Called when recording really starts; usually 
+    // when the next intra frame is received
 });
 
 // ...
@@ -138,7 +160,7 @@ a.href = window.URL.createObjectURL(blob);
 
 
 
-## Limitations ##
+## Limitations
 
 - Playback can only start when the file is fully loaded (when not streaming through WebSockets). I'm waiting for chunked XHR with ArrayBuffers to arrive in browsers.
 - MPEG files with B-Frames look weird - frames are not reordered. This should be relatively easy
@@ -147,9 +169,11 @@ to fix, but most encoders seem to not use B-Frames at all by default.
 - Only raw MPEG video streams are supported. The decoder hates Stream Packet Headers in between
 macroblocks.
 
+## Encoding
+
 You can use [FFmpeg](http://www.ffmpeg.org/) to encode videos in a suited format. This will crop
 the size to a multiple of 2, omit B-Frames and force a raw video stream:
 
 ```
-ffmpeg -i in.mp4 -f mpeg1video -vf "crop=iw-mod(iw\,2):ih-mod(ih\,2)" -b 0 out.mpg
+ffmpeg -i source.mp4 -an -f mpeg1video -vf "crop=iw-mod(iw\,2):ih-mod(ih\,2)" -b:v 300k output.mpg
 ```
