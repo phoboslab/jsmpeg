@@ -29,6 +29,7 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
     this.canvas = opts.canvas || document.createElement('canvas');
     this.autoplay = !!opts.autoplay;
     this.preloader = opts.preloader;
+    this.buffTime = opts.buffer;
     this.wantsToPlay = this.autoplay;
     this.loop = !!opts.loop;
     this.seekable = !!opts.seekable;
@@ -47,6 +48,8 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
     this.blockData = new Int32Array(64);
     this.zeroBlockData = new Int32Array(64);
     this.fillArray(this.zeroBlockData, 0);
+
+    this.chunks = [];
 
     // use WebGL for YCbCrToRGBA conversion if possible (much faster)
     if( !opts.forceCanvas2D && this.initWebGL() ) {
@@ -73,13 +76,18 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 jsmpeg.prototype.waitForIntraFrame = true;
 jsmpeg.prototype.socketBufferSize = 512 * 1024; // 512kb each
 
-jsmpeg.prototype.initSocketClient = function() {
+jsmpeg.prototype.initBitReader = function() {
     this.buffer = new BitReader(new ArrayBuffer(this.socketBufferSize));
 
     this.nextPictureBuffer = new BitReader(new ArrayBuffer(this.socketBufferSize));
     this.nextPictureBuffer.writePos = 0;
     this.nextPictureBuffer.chunkBegin = 0;
     this.nextPictureBuffer.lastWriteBeforeWrap = 0;
+};
+
+jsmpeg.prototype.initSocketClient = function() {
+
+    this.initBitReader();
 
     if (this.client) {
         this.client.binaryType = 'arraybuffer';
@@ -103,18 +111,15 @@ jsmpeg.prototype.decodeSocketHeader = function( data ) {
     }
 };
 
-var messagesForLoop = [];
-var videoFinished = false;
-
-jsmpeg.prototype.receiveSocketMessage = function( event ) {
+jsmpeg.prototype.receiveSocketMessage = function( event, callback ) {
     var messageData = new Uint8Array(event.data);
-    
-    if ( ! videoFinished) {
-        messagesForLoop.push(messageData);
-    }
-    
+
     if( !this.sequenceStarted ) {
         this.decodeSocketHeader(messageData);
+    }
+
+    if ( typeof callback === 'function' ) {
+        callback();
     }
 
     var current = this.buffer;
@@ -128,7 +133,7 @@ jsmpeg.prototype.receiveSocketMessage = function( event ) {
 
     next.bytes.set( messageData, next.writePos );
     next.writePos += messageData.length;
-    
+
     var startCode = 0;
     while( true ) {
         startCode = next.findNextMPEGStartCode();
@@ -163,7 +168,6 @@ jsmpeg.prototype.receiveSocketMessage = function( event ) {
     if( !this.currentPictureDecoded ) {
         this.decodePicture(DECODE_SKIP_OUTPUT);
     }
-
 
     // Copy the picture chunk over to 'this.buffer' and schedule decoding.
     var chunkEnd = ((next.index) >> 3);
@@ -369,11 +373,21 @@ jsmpeg.prototype.findLastPictureStartCode = function() {
     return 0;
 };
 
+jsmpeg.prototype.collectChunks = function(index, chunk, callback) {
+    this.chunks[index] = chunk;
+
+    if (typeof callback === 'function') {
+        callback();
+    }
+
+    window.chunks = this.chunks;
+};
+
 jsmpeg.prototype.load = function( url ) {
     this.url = url;
 
     var that = this;
-    
+
     //if (this.progressive)
     //{
     //    if (window.fetch && window.ReadableByteStream)
@@ -395,87 +409,82 @@ jsmpeg.prototype.load = function( url ) {
     //    }
     //    else
     //    {
+            var metadata = new XMLHttpRequest();
+            metadata.onload = function() {
+                var meta = JSON.parse(this.response);
+                var max = meta.length;
+                var frames = meta.frames;
+                var header = meta.header && meta.header.data;
+                var framerate = meta.framerate && (1000 / (meta.framerate || 25));
 
-            var keyframes = new XMLHttpRequest();
-            keyframes.onload = function() {
-                var r = JSON.parse(keyframes.response);
-                var l = r.frames;
-                var h = r.header;
-                var m = r.length;
-                
-                that.initSocketClient();
-                
-                var c = 0;
-                var b = 0;
-
-                var k = 0;
-                var loopId;
-
-                function loopStream() {
-                    if (messagesForLoop) {
-                        that.receiveSocketMessage({data: messagesForLoop[k]});
-                        k++;
-
-                        console.log("messagesForLoop: ", k, messagesForLoop.length, loopId);
-                        if (k >= messagesForLoop.length) {
-                            k = 0;
-                            console.log('reseting');
-                        }
-                    } 
+                if ( ! (max && frames && header && framerate)) {
+                    return;
                 }
                 
-                function bang(mybytes) {
-                    if (mybytes) {
-                        that.receiveSocketMessage({data: mybytes});
+                var bufferSec = that.buffTime * 1000;
+
+                var index = 0;
+                var last  = 0;
+                var frame = 0;
+                var intId = 0;
+
+                that.initBitReader();
+
+                function playback() {
+                    var one = that.chunks[frame];
+                    var top = (frame < frames.length);
+                    if (one) {
+                        that.receiveSocketMessage({ data: one }, function() {
+                            frame = top ? ++frame : 0;
+                            //console.log(frame, top);
+                        });
+                    } else {
+                        if (frame < frames.length) {
+                            //console.log('lag start');
+                            clearInterval(intId);
+                            setTimeout(function(){
+                                intId = setInterval(playback, framerate);
+                                //console.log('lag end');
+                            }, bufferSec);
+                        }
+                    }
+                }
+
+                function download(headers) {
+                    if (headers) {
+                        that.collectChunks(0, headers, function(){
+                            download();
+                            intId = setInterval(playback, framerate);
+                        });
+
                         return;
                     }
-                    
-                    var request = new XMLHttpRequest();
-                    request.onreadystatechange = function() {
-                        if( request.readyState === request.DONE && request.status === 206 ) {
-                            that.receiveSocketMessage({data: request.response});
-    
-                            c++;
-                            b = iki;
-                        }
-                        if (request.status === 416 ) {
-                            clearInterval(intId);
+
+                    var keyframe = new XMLHttpRequest();
+                    keyframe.onreadystatechange = function() {
+                        if( this.readyState === this.DONE && this.status === 206 ) {
+                            that.collectChunks(++index, this.response);
+                            last = till;
+                            download();
                         }
                     };
-                    request.open('GET', url);
-    
-                    var nuo = b + 1;
-                    var iki = (b + l[c]) || m;
-                    
-                    //console.log('nuo:', nuo, iki, [ m ]);
-                    
-                    if (nuo >= m) {
-                        videoFinished = true;
-                        clearInterval(intId);
+                    keyframe.open('GET', url);
 
-                        console.log('finished stream?', that.loop);
+                    var from =  last + 1;
+                    var till = (last + frames[index]) || max;
 
-                        if (!loopId && that.loop) {
-                            console.log('sukuriau loopa');
-                            loopId = setInterval(loopStream, 1000 / 25);
-                        }
+                    if (from >= max) return;
 
-                        return;
-                    };
-                    
-                    request.setRequestHeader('Range', 'bytes='+nuo+'-'+iki);
-                    request.responseType = 'arraybuffer';
-                    request.send();
+                    keyframe.setRequestHeader('Range', 'bytes='+ from +'-'+ till);
+                    keyframe.responseType = 'arraybuffer';
+                    keyframe.send();
                 }
-                
-                var framerate = 1000 / (r.framerate || 25);
-                var intId = setInterval(bang, framerate);
-                bang(h.data);
-            };
-            
-            keyframes.open('GET', 'http://localhost:8888/'+url.split('/').pop()+'.meta');
-            keyframes.send();
 
+                download(header);
+            };
+
+            metadata.open('GET', 'http://localhost:8888/'+url.split('/').pop()+'.meta');
+            metadata.send();
     //    }
     //} else {
     //    var request = new XMLHttpRequest();
@@ -972,7 +981,7 @@ jsmpeg.prototype.decodePicture = function(skipOutput) {
     if( skipOutput !== DECODE_SKIP_OUTPUT ) {
         this.renderFrame();
 
-        if(this.externalDecodeCallback) {
+        if (this.externalDecodeCallback) {
             this.externalDecodeCallback(this, this.canvas);
         }
     }
