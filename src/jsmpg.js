@@ -432,14 +432,14 @@ jsmpeg.prototype.load = function( url ) {
 
                 function playback() {
                     var one = that.chunks[frame];
-                    var top = (frame < frames.length);
+                    var len = frames.length
+                    var top = (frame < len);
                     if (one) {
                         that.receiveSocketMessage({ data: one }, function() {
                             frame = top ? ++frame : 0;
-                            //console.log(frame, top);
                         });
                     } else {
-                        if (frame < frames.length) {
+                        if (frame > (len * 0.01) && frame < len) {
                             //console.log('lag start');
                             clearInterval(intId);
                             setTimeout(function(){
@@ -480,7 +480,7 @@ jsmpeg.prototype.load = function( url ) {
                     keyframe.send();
                 }
 
-                download(header);
+                download( header );
             };
 
             metadata.open('GET', 'http://localhost:8888/'+url.split('/').pop()+'.meta');
@@ -700,7 +700,7 @@ jsmpeg.prototype.calculateDuration = function() {
 };
 
 jsmpeg.prototype.calculateProgress = function() {
-    var octa = 0.125; //8bit
+    var octa = 1/8; //8bit
     var progress = (this.buffer.index / this.buffer.length * octa) || 0;
     this.currentTime = this.duration * progress;
     return progress;
