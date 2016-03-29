@@ -12,8 +12,7 @@
     }
     #wrapper,
     #videoCanvas {
-        width: 300px;
-        height: 200px;
+        width: 400px;
     }
     #videoCanvas {
     }
@@ -29,7 +28,7 @@
     <input type="button" onclick="player.play();" value="Play" />
     <br />
     <br />
-    <canvas id="videoCanvas" width="300" height="200"></canvas>
+    <canvas id="videoCanvas" width="500"></canvas>
     
 </div>
 
@@ -61,7 +60,7 @@
         player.addEventListener('ended', handle);
     }
 
-    var url = './Volvo Vintersaga 30-H264 1080p lowres_1.mpg';
+    var url = './barsandtone.mpg';
     var player = new jsmpeg(url, {
         canvas: canvas,
         autoplay: true,

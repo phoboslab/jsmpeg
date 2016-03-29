@@ -400,6 +400,7 @@ jsmpeg.prototype.load = function( url ) {
                 var r = JSON.parse(keyframes.response);
                 var l = r.frames;
                 var h = r.header;
+                var m = r.length;
                 
                 that.initSocketClient();
                 
@@ -407,7 +408,6 @@ jsmpeg.prototype.load = function( url ) {
                 var b = 0;
                 
                 function bang(mybytes) {
-                    
                     if (mybytes) {
                         that.receiveSocketMessage({data: mybytes});
                         return;
@@ -428,16 +428,22 @@ jsmpeg.prototype.load = function( url ) {
                     request.open('GET', url);
     
                     var nuo = b + 1;
-                    var iki = (b + l[c]);
+                    var iki = (b + l[c]) || m;
                     
-                    //console.log('nuo:', nuo, iki, [ l[c] ], c );
+                    //console.log('nuo:', nuo, iki, [ m ]);
+                    
+                    if (nuo >= m) {
+                        clearInterval(intId);
+                        return;
+                    };
                     
                     request.setRequestHeader('Range', 'bytes='+nuo+'-'+iki);
                     request.responseType = 'arraybuffer';
                     request.send();
                 }
                 
-                var intId = setInterval(bang, 1000 / 25);
+                var framerate = 1000 / (r.framerate || 25);
+                var intId = setInterval(bang, framerate);
                 bang(h.data);
             };
             
