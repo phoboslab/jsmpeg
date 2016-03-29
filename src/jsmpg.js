@@ -103,15 +103,16 @@ jsmpeg.prototype.decodeSocketHeader = function( data ) {
     }
 };
 
-window.messages = [];
+var messagesForLoop = [];
+var videoFinished = false;
 
 jsmpeg.prototype.receiveSocketMessage = function( event ) {
     var messageData = new Uint8Array(event.data);
     
-    window.messages.push(messageData);
+    if ( ! videoFinished) {
+        messagesForLoop.push(messageData);
+    }
     
-    //console.log(messageData);
-
     if( !this.sequenceStarted ) {
         this.decodeSocketHeader(messageData);
     }
@@ -406,6 +407,22 @@ jsmpeg.prototype.load = function( url ) {
                 
                 var c = 0;
                 var b = 0;
+
+                var k = 0;
+                var loopId;
+
+                function loopStream() {
+                    if (messagesForLoop) {
+                        that.receiveSocketMessage({data: messagesForLoop[k]});
+                        k++;
+
+                        console.log("messagesForLoop: ", k, messagesForLoop.length, loopId);
+                        if (k >= messagesForLoop.length) {
+                            k = 0;
+                            console.log('reseting');
+                        }
+                    } 
+                }
                 
                 function bang(mybytes) {
                     if (mybytes) {
@@ -433,7 +450,16 @@ jsmpeg.prototype.load = function( url ) {
                     //console.log('nuo:', nuo, iki, [ m ]);
                     
                     if (nuo >= m) {
+                        videoFinished = true;
                         clearInterval(intId);
+
+                        console.log('finished stream?', that.loop);
+
+                        if (!loopId && that.loop) {
+                            console.log('sukuriau loopa');
+                            loopId = setInterval(loopStream, 1000 / 25);
+                        }
+
                         return;
                     };
                     
@@ -449,6 +475,7 @@ jsmpeg.prototype.load = function( url ) {
             
             keyframes.open('GET', 'http://localhost:8888/'+url.split('/').pop()+'.meta');
             keyframes.send();
+
     //    }
     //} else {
     //    var request = new XMLHttpRequest();
