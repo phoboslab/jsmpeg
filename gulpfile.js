@@ -16,10 +16,10 @@ gulp.task('scripts', function() {
         ].map(function(i){
             return 'src/'+i;
         }))
-        .pipe(concat('jsmpg.js'))
-        .pipe(wrap('(function(window){ "use strict";\n<%= contents %>})(window);'))
         .pipe(jshint())
         .pipe(jshint.reporter('default', { verbose: true }))
+        .pipe(concat('jsmpg.js'))
+        .pipe(wrap('(function(window){ "use strict";\n<%= contents %>})(window);'))
         .pipe(gulp.dest(destination))
         .pipe(uglify())
         .on('error', function(error) {
