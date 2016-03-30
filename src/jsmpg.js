@@ -415,7 +415,7 @@ jsmpeg.prototype.load = function( url ) {
                 var max = meta.length;
                 var frames = meta.frames;
                 var header = meta.header && meta.header.data;
-                var framerate = meta.framerate && (1000 / (meta.framerate || 25));
+                var framerate = meta.framerate && ( 1000 / (meta.framerate || 25) );
 
                 if ( ! (max && frames && header && framerate)) {
                     return;
@@ -432,7 +432,7 @@ jsmpeg.prototype.load = function( url ) {
 
                 function playback() {
                     var one = that.chunks[frame];
-                    var len = frames.length
+                    var len = frames.length;
                     var top = (frame < len);
                     if (one) {
                         that.receiveSocketMessage({ data: one }, function() {
