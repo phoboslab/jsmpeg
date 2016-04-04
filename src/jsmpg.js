@@ -29,7 +29,6 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
     this.canvas = opts.canvas || document.createElement('canvas');
     this.autoplay = !!opts.autoplay;
     this.preloader = opts.preloader;
-    this.buffTime = opts.buffer;
     this.wantsToPlay = this.autoplay;
     this.loop = !!opts.loop;
     this.seekable = !!opts.seekable;
