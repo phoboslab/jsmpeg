@@ -49,8 +49,6 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
     this.zeroBlockData = new Int32Array(64);
     this.fillArray(this.zeroBlockData, 0);
 
-    this.chunks = [];
-
     // use WebGL for YCbCrToRGBA conversion if possible (much faster)
     if( !opts.forceCanvas2D && this.initWebGL() ) {
         this.renderFrame = this.renderFrameGL;
@@ -280,7 +278,9 @@ jsmpeg.prototype.stopRecording = function() {
     return blob;
 };
 
-
+// TODO: 
+// split into separate files
+// remove recording and other
 
 // ----------------------------------------------------------------------------
 // Loading via Ajax
@@ -300,26 +300,27 @@ jsmpeg.prototype.fetchReaderPump = function(reader) {
     });
 };
 
-jsmpeg.prototype.fetchReaderReceive = function(reader, result) {
+jsmpeg.prototype.fetchReaderReceive = function(reader, result, callback) {
     if( result.done ) {
         if( this.seekable ) {
             var currentBufferPos = this.buffer.index;
             this.collectIntraFrames();
             this.buffer.index = currentBufferPos;
         }
-
+    
         this.duration = this.frameCount / this.pictureRate;
         this.lastFrameIndex = this.buffer.writePos << 3;
+
         return;
     }
-
+    
     this.buffer.bytes.set(result.value, this.buffer.writePos);
     this.buffer.writePos += result.value.byteLength;
 
     // Find the last picture start code - we have to be careful not trying
     // to decode any frames that aren't fully loaded yet.
-    this.lastFrameIndex =  this.findLastPictureStartCode();
-
+    this.lastFrameIndex = this.findLastPictureStartCode();
+    
     // Initialize the sequence headers and start playback if we have enough data
     // (at least 128kb)
     if( !this.sequenceStarted && this.buffer.writePos >= this.progressiveMinSize ) {
@@ -346,16 +347,24 @@ jsmpeg.prototype.fetchReaderReceive = function(reader, result) {
 
     // Not enough data to start playback yet - show loading progress
     else if( !this.sequenceStarted ) {
-        var status = {loaded: this.buffer.writePos, total: this.progressiveMinSize};
+        
+        var status = {
+            loaded: this.buffer.writePos,
+            total: this.progressiveMinSize
+        };
+        
         if( this.gl ) {
             this.updateLoaderGL(status);
-        }
-        else {
+        } else {
             this.updateLoader2D(status);
         }
     }
-
-    this.fetchReaderPump(reader);
+    
+    if (typeof callback === 'function') {
+        callback();
+    } else {
+        this.fetchReaderPump(reader);
+    }
 };
 
 jsmpeg.prototype.findLastPictureStartCode = function() {
@@ -373,136 +382,116 @@ jsmpeg.prototype.findLastPictureStartCode = function() {
     return 0;
 };
 
-jsmpeg.prototype.collectChunks = function(index, chunk, callback) {
-    this.chunks[index] = chunk;
-
-    if (typeof callback === 'function') {
-        callback();
-    }
-
-    window.chunks = this.chunks;
-};
-
 jsmpeg.prototype.load = function( url ) {
     this.url = url;
 
     var that = this;
 
-    //if (this.progressive)
-    //{
-    //    if (window.fetch && window.ReadableByteStream)
-    //    {
-    //        var reqHeaders = new Headers();
-    //        reqHeaders.append('Content-Type', 'video/mpeg');
-    //        fetch(url, {headers: reqHeaders}).then(function (res) {
-    //            var contentLength = res.headers.get('Content-Length');
-    //            var reader = res.body.getReader();
-    //
-    //            that.buffer = new BitReader(new ArrayBuffer(contentLength));
-    //            that.buffer.writePos = 0;
-    //            that.fetchReaderPump(reader);
-    //            that.preloader({
-    //                loaded: contentLength,
-    //                total: contentLength
-    //            });
-    //        });
-    //    }
-    //    else
-    //    {
-            var metadata = new XMLHttpRequest();
-            metadata.onload = function() {
-                var meta = JSON.parse(this.response);
-                var max = meta.length;
-                var frames = meta.frames;
-                var header = meta.header && meta.header.data;
-                var framerate = meta.framerate && ( 1000 / (meta.framerate || 25) );
-
-                if ( ! (max && frames && header && framerate)) {
-                    return;
-                }
+    if (this.progressive)
+    {
+        //if (window.fetch && window.ReadableByteStream)
+        if (false)
+        {
+            document.title = 'fetch';
+            
+            var reqHeaders = new Headers();
+            reqHeaders.append('Content-Type', 'video/mpeg');
+            fetch(url, {headers: reqHeaders}).then(function (res) {
+                var contentLength = res.headers.get('Content-Length');
+                var reader = res.body.getReader();
                 
-                var bufferSec = that.buffTime * 1000;
-
-                var index = 0;
-                var last  = 0;
-                var frame = 0;
-                var intId = 0;
-
-                that.initBitReader();
-
-                function playback() {
-                    var one = that.chunks[frame];
-                    var len = frames.length;
-                    var top = (frame < len);
-                    if (one) {
-                        that.receiveSocketMessage({ data: one }, function() {
-                            frame = top ? ++frame : 0;
-                        });
-                    } else {
-                        if (frame > (len * 0.01) && frame < len) {
-                            //console.log('lag start');
-                            clearInterval(intId);
-                            setTimeout(function(){
-                                intId = setInterval(playback, framerate);
-                                //console.log('lag end');
-                            }, bufferSec);
-                        }
-                    }
+                that.buffer = new BitReader(new ArrayBuffer(contentLength));
+                that.buffer.writePos = 0;
+                that.fetchReaderPump(reader);
+                that.preloader({
+                    loaded: contentLength,
+                    total: contentLength
+                });
+            });
+        }
+        else
+        {
+            document.title = 'chunks';
+            
+            var index = 0;
+            var last  = 0;
+            var frame = 0;
+            var intId = 0;
+            
+            var onehex = Math.pow(2, 15);
+            var contentlength = onehex;
+            var updateFramesArr = function(max) {
+                var tmp = [];
+                for (var i = 0; i < Math.floor(max / onehex); i++) {
+                    tmp.push(onehex);
                 }
+                var last = max % onehex;
+                tmp.push(last);
+                return tmp;
+            };
+            var frames = [ contentlength ];
+            var once = false;
 
-                function download(headers) {
-                    if (headers) {
-                        that.collectChunks(0, headers, function(){
-                            download();
-                            intId = setInterval(playback, framerate);
-                        });
+            var loopload = function(headers) {
 
-                        return;
-                    }
-
-                    var keyframe = new XMLHttpRequest();
-                    keyframe.onreadystatechange = function() {
-                        if( this.readyState === this.DONE && this.status === 206 ) {
-                            that.collectChunks(++index, this.response);
-                            last = till;
-                            download();
+                var keyframe = new XMLHttpRequest();
+                keyframe.onreadystatechange = function() {
+                    
+                    if ( !once && this.readyState === 2) { // HEADERS_RECEIVED; send() has been called, and headers and status are available.
+                        once = true;
+                        var range = this.getResponseHeader('Content-Range');
+                        if (! range) {
+                            return;
                         }
-                    };
-                    keyframe.open('GET', url);
+                        
+                        contentlength = +(range.split('/').pop());
+                        frames = updateFramesArr(contentlength);
+                        
+                        that.buffer = new BitReader(new ArrayBuffer(contentlength));
+                        that.buffer.writePos = 0;
+                    }
+                    
+                    if ( this.readyState === 4 && this.status === 206 ) { // DONE; The operation is complete. 206 - partial content
+                        
+                        last = till;
+                        loopload();
+                        
+                        that.fetchReaderReceive(null, { value: new Uint8Array(this.response) }, function() {
+                        });
+                    }
+                };
+                keyframe.open('GET', url);
 
-                    var from =  last + 1;
-                    var till = (last + frames[index]) || max;
+                var from =  last + 1;
+                var till = (last + frames[index]) || contentlength;
 
-                    if (from >= max) return;
+                if (from >= contentlength) return;
 
-                    keyframe.setRequestHeader('Range', 'bytes='+ from +'-'+ till);
-                    keyframe.responseType = 'arraybuffer';
-                    keyframe.send();
-                }
-
-                download( header );
+                keyframe.setRequestHeader('Range', 'bytes='+ from +'-'+ till);
+                keyframe.responseType = 'arraybuffer';
+                keyframe.send();
             };
 
-            metadata.open('GET', 'http://localhost:8888/'+url.split('/').pop()+'.meta');
-            metadata.send();
-    //    }
-    //} else {
-    //    var request = new XMLHttpRequest();
-    //    request.onreadystatechange = function() {
-    //        if( request.readyState === request.DONE && request.status === 200 ) {
-    //            that.loadCallback(request.response);
-    //        }
-    //    };
-    //
-    //    request.onprogress = this.gl
-    //        ? ( this.preloader || this.updateLoaderGL ).bind(this)
-    //        : ( this.preloader || this.updateLoader2D ).bind(this)
-    //    ;
-    //
-    //    request.open('GET', url);
-    //    request.responseType = 'arraybuffer';
-    //    request.send();
-    //}
+            loopload();
+
+        }
+    } else {
+        var request = new XMLHttpRequest();
+        request.onreadystatechange = function() {
+            if( request.readyState === request.DONE && request.status === 200 ) {
+                that.loadCallback(request.response);
+            }
+        };
+    
+        request.onprogress = this.gl
+            ? ( this.preloader || this.updateLoaderGL ).bind(this)
+            : ( this.preloader || this.updateLoader2D ).bind(this)
+        ;
+    
+        request.open('GET', url);
+        request.responseType = 'arraybuffer';
+        request.send();
+    }
 };
 
 jsmpeg.prototype.updateLoader2D = function( ev ) {
@@ -826,7 +815,7 @@ jsmpeg.prototype.decodeSequenceHeader = function() {
     this.buffer.advance(4); // skip pixel aspect ratio
     this.pictureRate = PICTURE_RATE[this.buffer.getBits(4)];
     this.buffer.advance(18 + 1 + 10 + 1); // skip bitRate, marker, bufferSize and constrained bit
-
+    
     this.initBuffers();
 
     var i;
@@ -907,8 +896,6 @@ jsmpeg.prototype.initBuffers = function() {
         this.fillArray(this.currentRGBA.data, 255);
     }
 };
-
-
 
 
 // ----------------------------------------------------------------------------
