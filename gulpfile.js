@@ -12,7 +12,8 @@ var destination = argv.dist || 'bin/';
 gulp.task('scripts', function() {
     gulp.src([
             'constants.js',
-            'jsmpg.js'
+            'jsmpg.js',
+            //'recording.js'
         ].map(function(i){
             return 'src/'+i;
         }))
