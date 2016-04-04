@@ -380,6 +380,11 @@ jsmpeg.prototype.load = function( url ) {
 
                 var from =  last + 1;
                 var till = (last + frames[index]) || contentlength;
+                
+                that.preloader({
+                    loaded: from,
+                    total: contentlength
+                });
 
                 if (from >= contentlength) return;
 
