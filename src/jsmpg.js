@@ -258,12 +258,12 @@ jsmpeg.prototype.fetchReaderReceive = function(reader, result, callback) {
             loaded: this.buffer.writePos,
             total: this.progressiveMinSize
         };
-        
-        if( this.gl ) {
-            this.updateLoaderGL(status);
-        } else {
-            this.updateLoader2D(status);
-        }
+
+        var method = this.gl
+            ? ( this.preloader || this.updateLoaderGL )
+            : ( this.preloader || this.updateLoader2D )
+        ;
+        method(status);
     }
     
     if (typeof callback === 'function') {
@@ -366,11 +366,6 @@ jsmpeg.prototype.load = function( url ) {
 
                 var from =  last + 1;
                 var till = (last + frames[index]) || contentlength;
-                
-                that.preloader({
-                    loaded: from,
-                    total: contentlength
-                });
 
                 if (from >= contentlength) return;
 
