@@ -73,18 +73,13 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 jsmpeg.prototype.waitForIntraFrame = true;
 jsmpeg.prototype.socketBufferSize = 512 * 1024; // 512kb each
 
-jsmpeg.prototype.initBitReader = function() {
+jsmpeg.prototype.initSocketClient = function() {
     this.buffer = new BitReader(new ArrayBuffer(this.socketBufferSize));
 
     this.nextPictureBuffer = new BitReader(new ArrayBuffer(this.socketBufferSize));
     this.nextPictureBuffer.writePos = 0;
     this.nextPictureBuffer.chunkBegin = 0;
     this.nextPictureBuffer.lastWriteBeforeWrap = 0;
-};
-
-jsmpeg.prototype.initSocketClient = function() {
-
-    this.initBitReader();
 
     if (this.client) {
         this.client.binaryType = 'arraybuffer';
@@ -108,15 +103,11 @@ jsmpeg.prototype.decodeSocketHeader = function( data ) {
     }
 };
 
-jsmpeg.prototype.receiveSocketMessage = function( event, callback ) {
+jsmpeg.prototype.receiveSocketMessage = function( event ) {
     var messageData = new Uint8Array(event.data);
 
     if( !this.sequenceStarted ) {
         this.decodeSocketHeader(messageData);
-    }
-
-    if ( typeof callback === 'function' ) {
-        callback();
     }
 
     var current = this.buffer;
@@ -307,8 +298,6 @@ jsmpeg.prototype.load = function( url ) {
         //if (window.fetch && window.ReadableByteStream)
         if (false)
         {
-            document.title = 'fetch';
-            
             var reqHeaders = new Headers();
             reqHeaders.append('Content-Type', 'video/mpeg');
             fetch(url, {headers: reqHeaders}).then(function (res) {
@@ -326,8 +315,6 @@ jsmpeg.prototype.load = function( url ) {
         }
         else
         {
-            document.title = 'chunks';
-            
             var index = 0;
             var last  = 0;
             var frame = 0;
