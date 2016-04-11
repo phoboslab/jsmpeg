@@ -11,6 +11,7 @@ var destination = argv.dist || 'bin/';
 
 gulp.task('scripts', function() {
     gulp.src([
+            'copyright.js',
             'constants.js',
             'jsmpg.js',
             //'recording.js'
