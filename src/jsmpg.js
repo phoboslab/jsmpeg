@@ -219,14 +219,14 @@ jsmpeg.prototype.fetchReaderReceive = function(reader, result, callback) {
 
         return;
     }
-    
+
     this.buffer.bytes.set(result.value, this.buffer.writePos);
     this.buffer.writePos += result.value.byteLength;
 
     // Find the last picture start code - we have to be careful not trying
     // to decode any frames that aren't fully loaded yet.
     this.lastFrameIndex = this.findLastPictureStartCode();
-    
+
     // Initialize the sequence headers and start playback if we have enough data
     // (at least 128kb)
     if( !this.sequenceStarted && this.buffer.writePos >= this.progressiveMinSize ) {
@@ -293,7 +293,7 @@ jsmpeg.prototype.load = function( url ) {
 
     var that = this;
 
-    if (this.progressive)
+    if (this.progressive)  
     {
         //if (window.fetch && window.ReadableByteStream)
         if (false)
@@ -316,7 +316,7 @@ jsmpeg.prototype.load = function( url ) {
         else
         {
             var index = 0;
-            var last  = 0;
+            var last  = -1;
             var frame = 0;
             var intId = 0;
             
@@ -354,7 +354,7 @@ jsmpeg.prototype.load = function( url ) {
                     }
                     
                     if ( this.readyState === 4 && this.status === 206 ) { // DONE; The operation is complete. 206 - partial content
-                        
+
                         last = till;
                         loopload();
                         
@@ -364,7 +364,7 @@ jsmpeg.prototype.load = function( url ) {
                 };
                 keyframe.open('GET', url);
 
-                var from =  last + 1;
+                var from = last + 1;
                 var till = (last + frames[index]) || contentlength;
 
                 if (from >= contentlength) return;
@@ -643,17 +643,34 @@ jsmpeg.prototype.now = function() {
 };
 
 jsmpeg.prototype.nextFrame = function() {
-    if( !this.buffer ) { return; }
+    if ( !this.buffer ) { return; }
 
     var frameStart = this.now();
-    while(true) {
+    while (true) {
         var code = this.buffer.findNextMPEGStartCode();
 
-        if( code === START_SEQUENCE ) {
+        var isBuffering = (this.buffer.index >= this.lastFrameIndex);
+        var allFramesLoaded = (this.buffer.writePos === this.buffer.length);
+
+        if ((isBuffering && allFramesLoaded) || (code === BitReader.NOT_FOUND)) {
+
+            this.stop(); // Jump back to the beginning
+
+            if( this.externalFinishedCallback ) {
+                this.externalFinishedCallback(this);
+            }
+
+            //Only loop if we found a sequence header
+            if( this.loop && this.sequenceStarted ) {
+                this.play();
+            }
+            return null;
+
+        } else if ( code === START_SEQUENCE ) {
             this.decodeSequenceHeader();
         }
         else if( code === START_PICTURE ) {
-            if( this.progressive && this.buffer.index >= this.lastFrameIndex ) {
+            if( this.progressive && this.buffer.index >= this.lastFrameIndex) {
                 // Starved
                 this.playing = false;
                 return;
@@ -663,22 +680,9 @@ jsmpeg.prototype.nextFrame = function() {
             }
             this.decodePicture();
             this.benchDecodeTimes += this.now() - frameStart;
+
             return this.canvas;
-        }
-        else if( code === BitReader.NOT_FOUND ) {
-            this.stop(); // Jump back to the beginning
-
-            if( this.externalFinishedCallback ) {
-                this.externalFinishedCallback(this);
-            }
-
-            // Only loop if we found a sequence header
-            if( this.loop && this.sequenceStarted ) {
-                this.play();
-            }
-            return null;
-        }
-        else {
+        } else {
             // ignore (GROUP, USER_DATA, EXTENSION, SLICES...)
         }
     }
