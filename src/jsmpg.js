@@ -213,7 +213,7 @@ jsmpeg.prototype.fetchReaderReceive = function(reader, result, callback) {
             this.collectIntraFrames();
             this.buffer.index = currentBufferPos;
         }
-    
+
         this.duration = this.frameCount / this.pictureRate;
         this.lastFrameIndex = this.buffer.writePos << 3;
 
@@ -253,7 +253,7 @@ jsmpeg.prototype.fetchReaderReceive = function(reader, result, callback) {
 
     // Not enough data to start playback yet - show loading progress
     else if( !this.sequenceStarted ) {
-        
+
         var status = {
             loaded: this.buffer.writePos,
             total: this.progressiveMinSize
@@ -265,7 +265,7 @@ jsmpeg.prototype.fetchReaderReceive = function(reader, result, callback) {
         ;
         method(status);
     }
-    
+
     if (typeof callback === 'function') {
         callback();
     } else {
@@ -293,25 +293,30 @@ jsmpeg.prototype.load = function( url ) {
 
     var that = this;
 
-    if (this.progressive)  
+    if (this.progressive)
     {
+        var onehex = Math.pow(2, 15);
+        var contentLength = onehex;
+
         //if (window.fetch && window.ReadableByteStream)
         if (false)
         {
             var reqHeaders = new Headers();
             reqHeaders.append('Content-Type', 'video/mpeg');
-            fetch(url, {headers: reqHeaders}).then(function (res) {
-                var contentLength = res.headers.get('Content-Length');
-                var reader = res.body.getReader();
-                
-                that.buffer = new BitReader(new ArrayBuffer(contentLength));
-                that.buffer.writePos = 0;
-                that.fetchReaderPump(reader);
-                that.preloader({
-                    loaded: contentLength,
-                    total: contentLength
-                });
-            });
+            fetch(url, { headers: reqHeaders })
+                .then(function (res) {
+                    contentLength = res.headers.get('Content-Length');
+                    var reader = res.body.getReader();
+
+                    that.buffer = new BitReader(new ArrayBuffer(contentLength));
+                    that.buffer.writePos = 0;
+                    that.fetchReaderPump(reader);
+                    that.preloader({
+                        loaded: contentLength,
+                        total: contentLength
+                    });
+                })
+            ;
         }
         else
         {
@@ -319,9 +324,7 @@ jsmpeg.prototype.load = function( url ) {
             var last  = -1;
             var frame = 0;
             var intId = 0;
-            
-            var onehex = Math.pow(2, 15);
-            var contentlength = onehex;
+
             var updateFramesArr = function(max) {
                 var tmp = [];
                 for (var i = 0; i < Math.floor(max / onehex); i++) {
@@ -331,43 +334,41 @@ jsmpeg.prototype.load = function( url ) {
                 tmp.push(last);
                 return tmp;
             };
-            var frames = [ contentlength ];
+
+            var frames = [ contentLength ]; // array of keyframes
             var once = false;
 
             var loopload = function(headers) {
 
                 var keyframe = new XMLHttpRequest();
                 keyframe.onreadystatechange = function() {
-                    
+
                     if ( !once && this.readyState === 2) { // HEADERS_RECEIVED; send() has been called, and headers and status are available.
                         once = true;
                         var range = this.getResponseHeader('Content-Range');
-                        if (! range) {
-                            return;
-                        }
-                        
-                        contentlength = +(range.split('/').pop());
-                        frames = updateFramesArr(contentlength);
-                        
-                        that.buffer = new BitReader(new ArrayBuffer(contentlength));
+                        if (! range) return;
+
+                        contentLength = +(range.split('/').pop());
+                        frames = updateFramesArr(contentLength);
+
+                        that.buffer = new BitReader(new ArrayBuffer(contentLength));
                         that.buffer.writePos = 0;
                     }
-                    
+
                     if ( this.readyState === 4 && this.status === 206 ) { // DONE; The operation is complete. 206 - partial content
 
                         last = till;
                         loopload();
-                        
-                        that.fetchReaderReceive(null, { value: new Uint8Array(this.response) }, function() {
-                        });
+
+                        that.fetchReaderReceive(null, { value: new Uint8Array(this.response) }, function() {});
                     }
                 };
                 keyframe.open('GET', url);
 
                 var from = last + 1;
-                var till = (last + frames[index]) || contentlength;
+                var till = (last + frames[index]);
 
-                if (from >= contentlength) return;
+                if (from >= contentLength) return;
 
                 keyframe.setRequestHeader('Range', 'bytes='+ from +'-'+ till);
                 keyframe.responseType = 'arraybuffer';
@@ -384,12 +385,12 @@ jsmpeg.prototype.load = function( url ) {
                 that.loadCallback(request.response);
             }
         };
-    
+
         request.onprogress = this.gl
             ? ( this.preloader || this.updateLoaderGL ).bind(this)
             : ( this.preloader || this.updateLoader2D ).bind(this)
         ;
-    
+
         request.open('GET', url);
         request.responseType = 'arraybuffer';
         request.send();
@@ -639,7 +640,8 @@ jsmpeg.prototype.benchAvgFrameTime = 0;
 jsmpeg.prototype.now = function() {
     return window.performance && window.performance.now
         ? window.performance.now()
-        : Date.now();
+        : Date.now()
+    ;
 };
 
 jsmpeg.prototype.nextFrame = function() {
@@ -721,7 +723,7 @@ jsmpeg.prototype.decodeSequenceHeader = function() {
     this.buffer.advance(4); // skip pixel aspect ratio
     this.pictureRate = PICTURE_RATE[this.buffer.getBits(4)];
     this.buffer.advance(18 + 1 + 10 + 1); // skip bitRate, marker, bufferSize and constrained bit
-    
+
     this.initBuffers();
 
     var i;
