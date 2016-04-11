@@ -14,7 +14,8 @@ gulp.task('scripts', function() {
             'copyright.js',
             'constants.js',
             'jsmpg.js',
-            //'recording.js'
+            //'recording.js',
+            'callback.js',
         ].map(function(i){
             return 'src/'+i;
         }))
