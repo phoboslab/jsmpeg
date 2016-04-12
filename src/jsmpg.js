@@ -248,7 +248,7 @@ jsmpeg.prototype.fetchReaderReceive = function(reader, result, callback) {
             ? ( this.preloader || this.updateLoaderGL )
             : ( this.preloader || this.updateLoader2D )
         ;
-        method(status);
+        method.call(this, status);
     }
 
     if (typeof callback === 'function') {
