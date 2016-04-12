@@ -1,18 +1,3 @@
-// jsmpeg by Dominic Szablewski - phoboslab.org, github.com/phoboslab
-//
-// Consider this to be under MIT license. It's largely based an an Open Source
-// Decoder for Java under GPL, while I looked at another Decoder from Nokia
-// (under no particular license?) for certain aspects.
-// I'm not sure if this work is "derivative" enough to have a different license
-// but then again, who still cares about MPEG1?
-//
-// Based on "Java MPEG-1 Video Decoder and Player" by Korandi Zoltan:
-// http://sourceforge.net/projects/javampeg1video/
-//
-// Inspired by "MPEG Decoder in Java ME" by Nokia:
-// http://www.developer.nokia.com/Community/Wiki/MPEG_decoder_in_Java_ME
-
-
 var requestAnimFrame = (function(){
     return window.requestAnimationFrame ||
         window.webkitRequestAnimationFrame ||
@@ -81,8 +66,10 @@ jsmpeg.prototype.initSocketClient = function() {
     this.nextPictureBuffer.chunkBegin = 0;
     this.nextPictureBuffer.lastWriteBeforeWrap = 0;
 
-    this.client.binaryType = 'arraybuffer';
-    this.client.onmessage = this.receiveSocketMessage.bind(this);
+    if (this.client) {
+        this.client.binaryType = 'arraybuffer';
+        this.client.onmessage = this.receiveSocketMessage.bind(this);
+    }
 };
 
 jsmpeg.prototype.decodeSocketHeader = function( data ) {
@@ -95,7 +82,7 @@ jsmpeg.prototype.decodeSocketHeader = function( data ) {
         data[2] === SOCKET_MAGIC_BYTES.charCodeAt(2) &&
         data[3] === SOCKET_MAGIC_BYTES.charCodeAt(3)
     ) {
-        this.width = (data[4] * 256 + data[5]);
+        this.width  = (data[4] * 256 + data[5]);
         this.height = (data[6] * 256 + data[7]);
         this.initBuffers();
     }
@@ -139,7 +126,6 @@ jsmpeg.prototype.receiveSocketMessage = function( event ) {
 
     // If we are still here, we found the next picture start code!
 
-
     // Skip picture decoding until we find the first intra frame?
     if( this.waitForIntraFrame ) {
         next.advance(10); // skip temporalReference
@@ -155,7 +141,6 @@ jsmpeg.prototype.receiveSocketMessage = function( event ) {
     if( !this.currentPictureDecoded ) {
         this.decodePicture(DECODE_SKIP_OUTPUT);
     }
-
 
     // Copy the picture chunk over to 'this.buffer' and schedule decoding.
     var chunkEnd = ((next.index) >> 3);
@@ -187,6 +172,7 @@ jsmpeg.prototype.scheduleDecoding = function() {
     this.currentPictureDecoded = true;
 };
 
+
 // ----------------------------------------------------------------------------
 // Loading via Ajax
 
@@ -205,7 +191,7 @@ jsmpeg.prototype.fetchReaderPump = function(reader) {
     });
 };
 
-jsmpeg.prototype.fetchReaderReceive = function(reader, result) {
+jsmpeg.prototype.fetchReaderReceive = function(reader, result, callback) {
     if( result.done ) {
         if( this.seekable ) {
             var currentBufferPos = this.buffer.index;
@@ -215,6 +201,7 @@ jsmpeg.prototype.fetchReaderReceive = function(reader, result) {
 
         this.duration = this.frameCount / this.pictureRate;
         this.lastFrameIndex = this.buffer.writePos << 3;
+
         return;
     }
 
@@ -223,7 +210,7 @@ jsmpeg.prototype.fetchReaderReceive = function(reader, result) {
 
     // Find the last picture start code - we have to be careful not trying
     // to decode any frames that aren't fully loaded yet.
-    this.lastFrameIndex =  this.findLastPictureStartCode();
+    this.lastFrameIndex = this.findLastPictureStartCode();
 
     // Initialize the sequence headers and start playback if we have enough data
     // (at least 128kb)
@@ -251,16 +238,24 @@ jsmpeg.prototype.fetchReaderReceive = function(reader, result) {
 
     // Not enough data to start playback yet - show loading progress
     else if( !this.sequenceStarted ) {
-        var status = {loaded: this.buffer.writePos, total: this.progressiveMinSize};
-        if( this.gl ) {
-            this.updateLoaderGL(status);
-        }
-        else {
-            this.updateLoader2D(status);
-        }
+
+        var status = {
+            loaded: this.buffer.writePos,
+            total: this.progressiveMinSize
+        };
+
+        var method = this.gl
+            ? ( this.preloader || this.updateLoaderGL )
+            : ( this.preloader || this.updateLoader2D )
+        ;
+        method.call(this, status);
     }
 
-    this.fetchReaderPump(reader);
+    if (typeof callback === 'function') {
+        callback();
+    } else {
+        this.fetchReaderPump(reader);
+    }
 };
 
 jsmpeg.prototype.findLastPictureStartCode = function() {
@@ -282,27 +277,93 @@ jsmpeg.prototype.load = function( url ) {
     this.url = url;
 
     var that = this;
-    if(
-        this.progressive &&
-        window.fetch &&
-        window.ReadableByteStream
-    ) {
-        var reqHeaders = new Headers();
-        reqHeaders.append('Content-Type', 'video/mpeg');
-        fetch(url, {headers: reqHeaders}).then(function (res) {
-            var contentLength = res.headers.get('Content-Length');
-            var reader = res.body.getReader();
 
-            that.buffer = new BitReader(new ArrayBuffer(contentLength));
-            that.buffer.writePos = 0;
-            that.fetchReaderPump(reader);
-            that.preloader({
-                loaded: contentLength,
-                total: contentLength
-            });
-        });
-    }
-    else {
+    if (this.progressive)
+    {
+        var onehex = Math.pow(2, 15);
+        var contentLength = onehex;
+
+        //if (window.fetch && window.ReadableByteStream)
+        if (false)
+        {
+            var reqHeaders = new Headers();
+            reqHeaders.append('Content-Type', 'video/mpeg');
+            fetch(url, { headers: reqHeaders })
+                .then(function (res) {
+                    contentLength = res.headers.get('Content-Length');
+                    var reader = res.body.getReader();
+
+                    that.buffer = new BitReader(new ArrayBuffer(contentLength));
+                    that.buffer.writePos = 0;
+                    that.fetchReaderPump(reader);
+                    that.preloader({
+                        loaded: contentLength,
+                        total: contentLength
+                    });
+                })
+            ;
+        }
+        else
+        {
+            var index = 0;
+            var last  = -1;
+            var frame = 0;
+            var intId = 0;
+
+            var updateFramesArr = function(max) {
+                var tmp = [];
+                for (var i = 0; i < Math.floor(max / onehex); i++) {
+                    tmp.push(onehex);
+                }
+                var last = max % onehex;
+                tmp.push(last);
+                return tmp;
+            };
+
+            var frames = [ contentLength ]; // array of keyframes
+            var once = false;
+
+            var loopload = function(headers) {
+
+                var keyframe = new XMLHttpRequest();
+                keyframe.onreadystatechange = function() {
+
+                    if ( !once && this.readyState === 2) { // HEADERS_RECEIVED; send() has been called, and headers and status are available.
+                        once = true;
+                        var range = this.getResponseHeader('Content-Range');
+                        if (! range) return;
+
+                        contentLength = +(range.split('/').pop());
+                        frames = updateFramesArr(contentLength);
+
+                        that.buffer = new BitReader(new ArrayBuffer(contentLength));
+                        that.buffer.writePos = 0;
+                    }
+
+                    if ( this.readyState === 4 && this.status === 206 ) { // DONE; The operation is complete. 206 - partial content
+
+                        last = till;
+                        loopload();
+
+                        that.fetchReaderReceive(null, { value: new Uint8Array(this.response) }, function() {});
+                    }
+                };
+                keyframe.open('GET', url);
+
+                var from = last + 1;
+                var till = (last + frames[index]);
+
+                if (from >= contentLength) return;
+
+                keyframe.setRequestHeader('Range', 'bytes='+ from +'-'+ till);
+                keyframe.responseType = 'arraybuffer';
+                keyframe.send();
+            };
+
+            loopload();
+
+        }
+    } else {
         var request = new XMLHttpRequest();
         request.onreadystatechange = function() {
             if( request.readyState === request.DONE && request.status === 200 ) {
@@ -516,7 +577,7 @@ jsmpeg.prototype.calculateDuration = function() {
 };
 
 jsmpeg.prototype.calculateProgress = function() {
-    var octa = 0.125; //8bit
+    var octa = 1/8; //8bit
     var progress = (this.buffer.index / this.buffer.length * octa) || 0;
     this.currentTime = this.duration * progress;
     return progress;
@@ -564,21 +625,39 @@ jsmpeg.prototype.benchAvgFrameTime = 0;
 jsmpeg.prototype.now = function() {
     return window.performance && window.performance.now
         ? window.performance.now()
-        : Date.now();
+        : Date.now()
+    ;
 };
 
 jsmpeg.prototype.nextFrame = function() {
-    if( !this.buffer ) { return; }
+    if ( !this.buffer ) { return; }
 
     var frameStart = this.now();
-    while(true) {
+    while (true) {
         var code = this.buffer.findNextMPEGStartCode();
 
-        if( code === START_SEQUENCE ) {
+        var isBuffering = (this.buffer.index >= this.lastFrameIndex);
+        var allFramesLoaded = (this.buffer.writePos === this.buffer.length);
+
+        if ((isBuffering && allFramesLoaded) || (code === BitReader.NOT_FOUND)) {
+
+            this.stop(); // Jump back to the beginning
+
+            if( this.externalFinishedCallback ) {
+                this.externalFinishedCallback(this);
+            }
+
+            //Only loop if we found a sequence header
+            if( this.loop && this.sequenceStarted ) {
+                this.play();
+            }
+            return null;
+
+        } else if ( code === START_SEQUENCE ) {
             this.decodeSequenceHeader();
         }
         else if( code === START_PICTURE ) {
-            if( this.progressive && this.buffer.index >= this.lastFrameIndex ) {
+            if( this.progressive && this.buffer.index >= this.lastFrameIndex) {
                 // Starved
                 this.playing = false;
                 return;
@@ -588,22 +667,9 @@ jsmpeg.prototype.nextFrame = function() {
             }
             this.decodePicture();
             this.benchDecodeTimes += this.now() - frameStart;
+
             return this.canvas;
-        }
-        else if( code === BitReader.NOT_FOUND ) {
-            this.stop(); // Jump back to the beginning
-
-            if( this.externalFinishedCallback ) {
-                this.externalFinishedCallback(this);
-            }
-
-            // Only loop if we found a sequence header
-            if( this.loop && this.sequenceStarted ) {
-                this.play();
-            }
-            return null;
-        }
-        else {
+        } else {
             // ignore (GROUP, USER_DATA, EXTENSION, SLICES...)
         }
     }
@@ -725,8 +791,6 @@ jsmpeg.prototype.initBuffers = function() {
 };
 
 
-
-
 // ----------------------------------------------------------------------------
 // Picture Layer
 
@@ -797,7 +861,7 @@ jsmpeg.prototype.decodePicture = function(skipOutput) {
     if( skipOutput !== DECODE_SKIP_OUTPUT ) {
         this.renderFrame();
 
-        if(this.externalDecodeCallback) {
+        if (this.externalDecodeCallback) {
             this.externalDecodeCallback(this, this.canvas);
         }
     }

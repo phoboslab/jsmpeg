@@ -11,9 +11,11 @@ var destination = argv.dist || 'bin/';
 
 gulp.task('scripts', function() {
     gulp.src([
+            'copyright.js',
             'constants.js',
             'jsmpg.js',
-            //'recording.js'
+            //'recording.js',
+            'callback.js',
         ].map(function(i){
             return 'src/'+i;
         }))

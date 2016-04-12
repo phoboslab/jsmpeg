@@ -12,10 +12,8 @@
     }
     #wrapper,
     #videoCanvas {
-        width: 320px;
-        height: 180px;
-    }
-    #videoCanvas {
+        width: 300px;
+        height: 200px;
     }
 </style>
 </head>
@@ -27,16 +25,12 @@
     <input type="button" onclick="player.play();" value="Play" />
     <br />
     <br />
-    <canvas id="videoCanvas" width="320" height="180"></canvas>
+    <canvas id="videoCanvas" width="300" height="200"></canvas>
 </div>
 
 <script type="text/javascript" src="../bin/jsmpg.js"></script>
 <script type="text/javascript">
     var canvas = document.getElementById('videoCanvas');
-    
-    //var ctx = canvas.getContext('2d');
-    //ctx.fillStyle = '#444';
-    //ctx.fillText('Loading...', canvas.width/2-30, canvas.height/3);
     
     function preloader(evt) {
         var percent = evt.loaded / evt.total;
@@ -60,16 +54,15 @@
         player.addEventListener('ended', handle);
     }
 
-    var url = './office-ambient.mpg';
+    var url = './adform.mpg'
     var player = new jsmpeg(url, {
         canvas: canvas,
         autoplay: true,
-        loop: false,
+        loop: true,
         preloader: preloader,
-        onload: onload
+        onload: onload,
+        progressive: true
     });
-
-    
 </script>
 
 </body>
