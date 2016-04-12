@@ -10,7 +10,9 @@ var BitReader = function(arrayBuffer) {
 
 BitReader.NOT_FOUND = -1;
 
-BitReader.prototype.findNextMPEGStartCode = function() {
+var BitReader_prototype = BitReader.prototype;
+
+BitReader_prototype.findNextMPEGStartCode = function() {
     for( var i = (this.index+7 >> 3); i < this.writePos; i++ ) {
         if(
             this.bytes[i] === 0x00 &&
@@ -25,7 +27,7 @@ BitReader.prototype.findNextMPEGStartCode = function() {
     return BitReader.NOT_FOUND;
 };
 
-BitReader.prototype.nextBytesAreStartCode = function() {
+BitReader_prototype.nextBytesAreStartCode = function() {
     var i = (this.index+7 >> 3);
     return (
         i >= this.writePos || (
@@ -36,7 +38,7 @@ BitReader.prototype.nextBytesAreStartCode = function() {
     );
 };
 
-BitReader.prototype.nextBits = function(count) {
+BitReader_prototype.nextBits = function(count) {
     var
         byteOffset = this.index >> 3,
         room = (8 - this.index % 8);
@@ -67,16 +69,16 @@ BitReader.prototype.nextBits = function(count) {
     return value;
 };
 
-BitReader.prototype.getBits = function(count) {
+BitReader_prototype.getBits = function(count) {
     var value = this.nextBits(count);
     this.index += count;
     return value;
 };
 
-BitReader.prototype.advance = function(count) {
+BitReader_prototype.advance = function(count) {
     return (this.index += count);
 };
 
-BitReader.prototype.rewind = function(count) {
+BitReader_prototype.rewind = function(count) {
     return (this.index -= count);
 };

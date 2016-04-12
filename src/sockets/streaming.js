@@ -1,10 +1,10 @@
 // ----------------------------------------------------------------------------
 // Streaming over WebSockets
 
-jsmpeg.prototype.waitForIntraFrame = true;
-jsmpeg.prototype.socketBufferSize = 512 * 1024; // 512kb each
+jsmpeg_prototype.waitForIntraFrame = true;
+jsmpeg_prototype.socketBufferSize = 512 * 1024; // 512kb each
 
-jsmpeg.prototype.initSocketClient = function() {
+jsmpeg_prototype.initSocketClient = function() {
     this.buffer = new BitReader(new ArrayBuffer(this.socketBufferSize));
 
     this.nextPictureBuffer = new BitReader(new ArrayBuffer(this.socketBufferSize));
@@ -18,7 +18,7 @@ jsmpeg.prototype.initSocketClient = function() {
     }
 };
 
-jsmpeg.prototype.decodeSocketHeader = function( data ) {
+jsmpeg_prototype.decodeSocketHeader = function( data ) {
     // Custom header sent to all newly connected clients when streaming
     // over websockets:
     // struct { char magic[4] = 'jsmp'; unsigned short width, height; };
@@ -34,7 +34,7 @@ jsmpeg.prototype.decodeSocketHeader = function( data ) {
     }
 };
 
-jsmpeg.prototype.receiveSocketMessage = function( event ) {
+jsmpeg_prototype.receiveSocketMessage = function( event ) {
     var messageData = new Uint8Array(event.data);
 
     if( !this.sequenceStarted ) {
@@ -113,7 +113,7 @@ jsmpeg.prototype.receiveSocketMessage = function( event ) {
     requestAnimFrame( this.scheduleDecoding.bind(this), this.canvas );
 };
 
-jsmpeg.prototype.scheduleDecoding = function() {
+jsmpeg_prototype.scheduleDecoding = function() {
     this.decodePicture();
     this.currentPictureDecoded = true;
 };

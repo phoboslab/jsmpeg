@@ -1,19 +1,19 @@
 // ----------------------------------------------------------------------------
 // Recording from WebSockets
 
-jsmpeg.prototype.isRecording = false;
-jsmpeg.prototype.recorderWaitForIntraFrame = false;
-jsmpeg.prototype.recordedFrames = 0;
-jsmpeg.prototype.recordedSize = 0;
-jsmpeg.prototype.didStartRecordingCallback = null;
+jsmpeg_prototype.isRecording = false;
+jsmpeg_prototype.recorderWaitForIntraFrame = false;
+jsmpeg_prototype.recordedFrames = 0;
+jsmpeg_prototype.recordedSize = 0;
+jsmpeg_prototype.didStartRecordingCallback = null;
 
-jsmpeg.prototype.recordBuffers = [];
+jsmpeg_prototype.recordBuffers = [];
 
-jsmpeg.prototype.canRecord = function(){
+jsmpeg_prototype.canRecord = function(){
     return (this.client && this.client.readyState === this.client.OPEN);
 };
 
-jsmpeg.prototype.startRecording = function(callback) {
+jsmpeg_prototype.startRecording = function(callback) {
     if( !this.canRecord() ) {
         return;
     }
@@ -44,7 +44,7 @@ jsmpeg.prototype.startRecording = function(callback) {
     ]));
 };
 
-jsmpeg.prototype.recordFrameFromCurrentBuffer = function() {
+jsmpeg_prototype.recordFrameFromCurrentBuffer = function() {
     if( !this.isRecording ) { return; }
 
     if( this.recorderWaitForIntraFrame ) {
@@ -65,12 +65,12 @@ jsmpeg.prototype.recordFrameFromCurrentBuffer = function() {
     this.recordBuffers.push(new Uint8Array(this.buffer.bytes.subarray(0, this.buffer.writePos)));
 };
 
-jsmpeg.prototype.discardRecordBuffers = function() {
+jsmpeg_prototype.discardRecordBuffers = function() {
     this.recordBuffers = [];
     this.recordedFrames = 0;
 };
 
-jsmpeg.prototype.stopRecording = function() {
+jsmpeg_prototype.stopRecording = function() {
     var blob = new Blob(this.recordBuffers, {type: 'video/mpeg'});
     this.discardRecordBuffers();
     this.isRecording = false;
