@@ -13,6 +13,7 @@ gulp.task('scripts', function() {
     gulp.src([
             'copyright.js',
             'constants.js',
+            'bitreader.js',
             'jsmpg.js',
             //'sockets/recording.js',
             //'sockets/streaming.js',
