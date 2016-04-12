@@ -13,8 +13,10 @@ gulp.task('scripts', function() {
     gulp.src([
             'copyright.js',
             'constants.js',
+            'bitreader.js',
             'jsmpg.js',
-            //'recording.js',
+            //'sockets/recording.js',
+            //'sockets/streaming.js',
             'callback.js',
         ].map(function(i){
             return 'src/'+i;
@@ -22,7 +24,7 @@ gulp.task('scripts', function() {
         .pipe(jshint())
         .pipe(jshint.reporter('default', { verbose: true }))
         .pipe(concat('jsmpg.js'))
-        .pipe(wrap('(function(window){ "use strict";\n<%= contents %>})(window);'))
+        .pipe(wrap('"use strict";\n(function(window){\n<%= contents %>})(window);'))
         .pipe(gulp.dest(destination))
         .pipe(uglify())
         .on('error', function(error) {
