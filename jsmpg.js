@@ -42,6 +42,7 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 	this.blockData = new Int32Array(64);
 	this.zeroBlockData = new Int32Array(64);
 	this.fillArray(this.zeroBlockData, 0);
+	this.intraFrames = [];
 
 	// use WebGL for YCbCrToRGBA conversion if possible (much faster)
 	if( !opts.forceCanvas2D && this.initWebGL() ) {
