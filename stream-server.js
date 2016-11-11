@@ -20,14 +20,14 @@ var socketServer = new (require('ws').Server)({port: WEBSOCKET_PORT});
 socketServer.on('connection', function(socket) {
 	// Send magic bytes and video size to the newly connected socket
 	// struct { char magic[4]; unsigned short width, height;}
-	var streamHeader = new Buffer(8);
+	var streamHeader = Buffer.alloc(8);
 	streamHeader.write(STREAM_MAGIC_BYTES);
 	streamHeader.writeUInt16BE(width, 4);
 	streamHeader.writeUInt16BE(height, 6);
 	socket.send(streamHeader, {binary:true});
 
 	console.log( 'New WebSocket Connection ('+socketServer.clients.length+' total)' );
-	
+
 	socket.on('close', function(code, message){
 		console.log( 'Disconnected WebSocket ('+socketServer.clients.length+' total)' );
 	});
@@ -51,12 +51,12 @@ var streamServer = require('http').createServer( function(request, response) {
 
 	if( params[0] == STREAM_SECRET ) {
 		response.connection.setTimeout(0);
-		
+
 		width = (params[1] || 320)|0;
 		height = (params[2] || 240)|0;
-		
+
 		console.log(
-			'Stream Connected: ' + request.socket.remoteAddress + 
+			'Stream Connected: ' + request.socket.remoteAddress +
 			':' + request.socket.remotePort + ' size: ' + width + 'x' + height
 		);
 		request.on('data', function(data){
@@ -65,7 +65,7 @@ var streamServer = require('http').createServer( function(request, response) {
 	}
 	else {
 		console.log(
-			'Failed Stream Connection: '+ request.socket.remoteAddress + 
+			'Failed Stream Connection: '+ request.socket.remoteAddress +
 			request.socket.remotePort + ' - wrong secret.'
 		);
 		response.end();
