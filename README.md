@@ -114,6 +114,14 @@ var client = new WebSocket( 'ws://example.com:8084/' );
 var player = new jsmpeg(client, {canvas:canvas});
 ```
 
+Also, you can pass a RTCDataChannel connection when you use WebRTC:
+
+```javascript
+var pc = new PeerConnection();
+var dc = pc.createDataChannel("my channel");
+var player = new jsmpeg(dc, {canvas:canvas});
+```
+
 ###Stream Recording###
 
 To record an MPEG stream clientside in the browser jsmpeg provides the `.startRecording(cb)` and `.stopRecording()` methods. `.stopRecording()` returns a `Blob` object that can be used to create a download link.
