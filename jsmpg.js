@@ -14,7 +14,10 @@
 // Inspired by "MPEG Decoder in Java ME" by Nokia:
 // http://www.developer.nokia.com/Community/Wiki/MPEG_decoder_in_Java_ME
 
-
+var implementSocketInterface = function(s) {
+	return s.onopen && s.onmessage && s.onclose && s.onclose;
+}
+		  
 var requestAnimFrame = (function(){
 	return window.requestAnimationFrame ||
 		window.webkitRequestAnimationFrame ||
@@ -51,7 +54,7 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 		this.renderFrame = this.renderFrame2D;
 	}
 
-	if( url instanceof WebSocket ) {
+	if( implementSocketInterface(url) ) {
 		this.client = url;
 		this.client.onopen = this.initSocketClient.bind(this);
 	}
