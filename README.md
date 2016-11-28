@@ -153,3 +153,7 @@ the size to a multiple of 2, omit B-Frames and force a raw video stream:
 ```
 ffmpeg -i in.mp4 -f mpeg1video -vf "crop=iw-mod(iw\,2):ih-mod(ih\,2)" -b 0 out.mpg
 ```
+
+## Inspiration ##
+
+jsmpeg is based on [Java MPEG-1 Video Decoder and Player](http://sourceforge.net/projects/javampeg1video/) by Korandi Zoltan and inspired by [MPEG Decoder in Java ME](http://www.developer.nokia.com/Community/Wiki/MPEG_decoder_in_Java_ME) by Nokia.
