@@ -99,67 +99,68 @@ jsmpeg.prototype.receiveSocketMessage = function( event ) {
 
 	next.bytes.set( messageData, next.writePos );
 	next.writePos += messageData.length;
+    for (;;) {
+        var startCode = 0;
+        while( true ) {
+            startCode = next.findNextMPEGStartCode();
+            if(
+                startCode === BitReader.NOT_FOUND ||
+                ((next.index >> 3) > next.writePos)
+            ) {
+                // We reached the end with no picture found yet; move back a few bytes
+                // in case we are at the beginning of a start code and exit.
+                next.index = Math.max((next.writePos-3), 0) << 3;
+                return;
+            }
+            else if( startCode === START_PICTURE ) {
+                break;
+            }
+        }
 
-	var startCode = 0;
-	while( true ) {
-		startCode = next.findNextMPEGStartCode();
-		if(
-			startCode === BitReader.NOT_FOUND ||
-			((next.index >> 3) > next.writePos)
-		) {
-			// We reached the end with no picture found yet; move back a few bytes
-			// in case we are at the beginning of a start code and exit.
-			next.index = Math.max((next.writePos-3), 0) << 3;
-			return;
-		}
-		else if( startCode === START_PICTURE ) {
-			break;
-		}
-	}
-
-	// If we are still here, we found the next picture start code!
-
-
-	// Skip picture decoding until we find the first intra frame?
-	if( this.waitForIntraFrame ) {
-		next.advance(10); // skip temporalReference
-		if( next.getBits(3) === PICTURE_TYPE_I ) {
-			this.waitForIntraFrame = false;
-			next.chunkBegin = (next.index-13) >> 3;
-		}
-		return;
-	}
-
-	// Last picture hasn't been decoded yet? Decode now but skip output
-	// before scheduling the next one
-	if( !this.currentPictureDecoded ) {
-		this.decodePicture(DECODE_SKIP_OUTPUT);
-	}
+        // If we are still here, we found the next picture start code!
 
 
-	// Copy the picture chunk over to 'this.buffer' and schedule decoding.
-	var chunkEnd = ((next.index) >> 3);
+        // Skip picture decoding until we find the first intra frame?
+        if( this.waitForIntraFrame ) {
+            next.advance(10); // skip temporalReference
+            if( next.getBits(3) === PICTURE_TYPE_I ) {
+                this.waitForIntraFrame = false;
+                next.chunkBegin = (next.index-13) >> 3;
+            }
+            continue;
+        }
 
-	if( chunkEnd > next.chunkBegin ) {
-		// Just copy the current picture chunk
-		current.bytes.set( next.bytes.subarray(next.chunkBegin, chunkEnd) );
-		current.writePos = chunkEnd - next.chunkBegin;
-	}
-	else {
-		// We wrapped the nextPictureBuffer around, so we have to copy the last part
-		// till the end, as well as from 0 to the current writePos
-		current.bytes.set( next.bytes.subarray(next.chunkBegin, next.lastWriteBeforeWrap) );
-		var written = next.lastWriteBeforeWrap - next.chunkBegin;
-		current.bytes.set( next.bytes.subarray(0, chunkEnd), written );
-		current.writePos = chunkEnd + written;
-	}
+        // Last picture hasn't been decoded yet? Decode now but skip output
+        // before scheduling the next one
+        if( !this.currentPictureDecoded ) {
+            this.decodePicture(DECODE_SKIP_OUTPUT);
+        }
 
-	current.index = 0;
-	next.chunkBegin = chunkEnd;
 
-	// Decode!
-	this.currentPictureDecoded = false;
-	requestAnimFrame( this.scheduleDecoding.bind(this), this.canvas );
+        // Copy the picture chunk over to 'this.buffer' and schedule decoding.
+        var chunkEnd = ((next.index) >> 3);
+
+        if( chunkEnd > next.chunkBegin ) {
+            // Just copy the current picture chunk
+            current.bytes.set( next.bytes.subarray(next.chunkBegin, chunkEnd) );
+            current.writePos = chunkEnd - next.chunkBegin;
+        }
+        else {
+            // We wrapped the nextPictureBuffer around, so we have to copy the last part
+            // till the end, as well as from 0 to the current writePos
+            current.bytes.set( next.bytes.subarray(next.chunkBegin, next.lastWriteBeforeWrap) );
+            var written = next.lastWriteBeforeWrap - next.chunkBegin;
+            current.bytes.set( next.bytes.subarray(0, chunkEnd), written );
+            current.writePos = chunkEnd + written;
+        }
+
+        current.index = 0;
+        next.chunkBegin = chunkEnd;
+
+        // Decode!
+        this.currentPictureDecoded = false;
+        requestAnimFrame( this.scheduleDecoding.bind(this), this.canvas );
+    }
 };
 
 jsmpeg.prototype.scheduleDecoding = function() {
