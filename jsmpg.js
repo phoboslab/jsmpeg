@@ -11,7 +11,6 @@ var requestAnimFrame = (function(){
 
 var jsmpeg = window.jsmpeg = function( url, opts ) {
 	opts = opts || {};
-	this.progressive = (opts.progressive !== false);
 	this.benchmark = !!opts.benchmark;
 	this.canvas = opts.canvas || document.createElement('canvas');
 	this.autoplay = !!opts.autoplay;
@@ -21,6 +20,11 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 	this.externalLoadCallback = opts.onload || null;
 	this.externalDecodeCallback = opts.ondecodeframe || null;
 	this.externalFinishedCallback = opts.onfinished || null;
+
+	this.progressive = !!opts.progressive;
+	this.progressiveThrottled = !!opts.progressiveThrottled;
+	this.progressiveChunkSize = opts.progressiveChunkSize || 256*1024;
+	this.progressiveChunkSizeMax = 4 * 1024 * 1024;
 
 	this.customIntraQuantMatrix = new Uint8Array(64);
 	this.customNonIntraQuantMatrix = new Uint8Array(64);
@@ -39,6 +43,9 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 	if( url instanceof WebSocket ) {
 		this.client = url;
 		this.client.onopen = this.initSocketClient.bind(this);
+	}
+	else if (this.progressive) {
+		this.beginProgressiveLoad(url);
 	}
 	else {
 		this.load(url);
@@ -258,129 +265,29 @@ jsmpeg.prototype.currentFrame = -1;
 jsmpeg.prototype.currentTime = 0;
 jsmpeg.prototype.frameCount = 0;
 jsmpeg.prototype.duration = 0;
-jsmpeg.prototype.progressiveMinSize = 128 * 1024;
-
-
-jsmpeg.prototype.fetchReaderPump = function(reader) {
-	var that = this;
-	reader.read().then(function (result) {
-		that.fetchReaderReceive(reader, result);
-	});
-};
-
-jsmpeg.prototype.fetchReaderReceive = function(reader, result) {
-	if( result.done ) {
-		if( this.seekable ) {
-			var currentBufferPos = this.buffer.index;
-			this.collectIntraFrames();
-			this.buffer.index = currentBufferPos;
-		}
-
-		this.duration = this.frameCount / this.pictureRate;
-		this.lastFrameIndex = this.buffer.writePos << 3;
-		return;
-	}
-
-	this.buffer.bytes.set(result.value, this.buffer.writePos);
-	this.buffer.writePos += result.value.byteLength;
-
-	// Find the last picture start code - we have to be careful not trying
-	// to decode any frames that aren't fully loaded yet.
-	this.lastFrameIndex =  this.findLastPictureStartCode();
-
-	// Initialize the sequence headers and start playback if we have enough data
-	// (at least 128kb) 
-	if( !this.sequenceStarted && this.buffer.writePos >= this.progressiveMinSize ) {
-		this.findStartCode(START_SEQUENCE);
-		this.firstSequenceHeader = this.buffer.index;
-		this.decodeSequenceHeader();
-
-		// Load the first frame
-		this.nextFrame();
-
-		if( this.autoplay ) {
-			this.play();
-		}
-
-		if( this.externalLoadCallback ) {
-			this.externalLoadCallback(this);
-		}
-	}
-
-	// If the player starved previously, restart playback now
-	else if( this.sequenceStarted && this.wantsToPlay && !this.playing ) {
-		this.play();
-	}
-
-	// Not enough data to start playback yet - show loading progress
-	else if( !this.sequenceStarted ) {
-		var status = {loaded: this.buffer.writePos, total: this.progressiveMinSize};
-		if( this.gl ) {
-			this.updateLoaderGL(status);
-		}
-		else {
-			this.updateLoader2D(status);
-		}
-	}
-
-	this.fetchReaderPump(reader);
-};
-
-jsmpeg.prototype.findLastPictureStartCode = function() {
-	var bufferBytes = this.buffer.bytes;
-	for( var i = this.buffer.writePos; i > 3; i-- ) {
-		if(
-			bufferBytes[i] == START_PICTURE &&
-			bufferBytes[i-1] == 0x01 &&
-			bufferBytes[i-2] == 0x00 &&
-			bufferBytes[i-3] == 0x00			
-		) {
-			return (i-3) << 3;
-		}
-	}
-	return 0;
-};
-
+	
 jsmpeg.prototype.load = function( url ) {
 	this.url = url;
 
+	var request = new XMLHttpRequest();
 	var that = this;
-	if( 
-		this.progressive && 
-		window.fetch && 
-		window.ReadableByteStream
-	) {
-		var reqHeaders = new Headers();
-		reqHeaders.append('Content-Type', 'video/mpeg');
-		fetch(url, {headers: reqHeaders}).then(function (res) {
-			var contentLength = res.headers.get('Content-Length');
-			var reader = res.body.getReader();
+	request.onreadystatechange = function() {
+		if( request.readyState == request.DONE && request.status == 200 ) {
+			that.loadCallback(request.response);
+		}
+	};
 
-			that.buffer = new BitReader(new ArrayBuffer(contentLength));
-			that.buffer.writePos = 0;
-			that.fetchReaderPump(reader);
-        });
-	}
-	else {
-		var request = new XMLHttpRequest();
-		request.onreadystatechange = function() {
-			if( request.readyState === request.DONE && request.status === 200 ) {
-				that.loadCallback(request.response);
-			}
-		};
+	request.onprogress = this.gl 
+		? this.updateLoaderGL.bind(this) 
+		: this.updateLoader2D.bind(this);
 
-		request.onprogress = this.gl
-			? this.updateLoaderGL.bind(this)
-			: this.updateLoader2D.bind(this);
-
-		request.open('GET', url);
-		request.responseType = 'arraybuffer';
-		request.send();
-	}
+	request.open('GET', url);
+	request.responseType = "arraybuffer";
+	request.send();
 };
 
 jsmpeg.prototype.updateLoader2D = function( ev ) {
-	var
+	var 
 		p = ev.loaded / ev.total,
 		w = this.canvas.width,
 		h = this.canvas.height,
@@ -397,8 +304,7 @@ jsmpeg.prototype.updateLoaderGL = function( ev ) {
 	gl.uniform1f(gl.getUniformLocation(this.loadingProgram, 'loaded'), (ev.loaded / ev.total));
 	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 };
-
-
+	
 jsmpeg.prototype.loadCallback = function(file) {
 	this.buffer = new BitReader(file);
 
@@ -406,7 +312,7 @@ jsmpeg.prototype.loadCallback = function(file) {
 		this.collectIntraFrames();
 		this.buffer.index = 0;
 	}
-
+	
 	this.findStartCode(START_SEQUENCE);
 	this.firstSequenceHeader = this.buffer.index;
 	this.decodeSequenceHeader();
@@ -416,7 +322,7 @@ jsmpeg.prototype.loadCallback = function(file) {
 
 	// Load the first frame
 	this.nextFrame();
-
+	
 	if( this.autoplay ) {
 		this.play();
 	}
@@ -478,9 +384,18 @@ jsmpeg.prototype.seekToTime = function(time, seekExact) {
 
 jsmpeg.prototype.play = function() {
 	if( this.playing ) { return; }
+	if( this.progressive ) {
+		this.wantsToPlay = true;
+		this.attemptToPlay();
+	}
+	else {
+		this._playNow();
+	}
+};
+
+jsmpeg.prototype._playNow = function() {
 	this.targetTime = this.now();
 	this.playing = true;
-	this.wantsToPlay = true;
 	this.scheduleNextFrame();
 };
 
@@ -491,6 +406,8 @@ jsmpeg.prototype.pause = function() {
 
 jsmpeg.prototype.stop = function() {
 	this.currentFrame = -1;
+	this.currentTime = 0;
+	this.wantsToPlay = false;
 	if( this.buffer ) {
 		this.buffer.index = this.firstSequenceHeader;
 	}
@@ -499,7 +416,187 @@ jsmpeg.prototype.stop = function() {
 		this.client.close();
 		this.client = null;
 	}
-	this.wantsToPlay = false;
+};
+
+
+
+// ----------------------------------------------------------------------------
+// Progressive loading via AJAX
+
+jsmpeg.prototype.beginProgressiveLoad = function( url ) {
+	this.url = url;
+	
+	this.progressiveLoadPositon = 0;
+	this.fileSize = 0;
+
+	var request = new XMLHttpRequest();
+	var that = this;
+	request.onreadystatechange = function() {
+		if( request.readyState === request.DONE ) {
+			that.fileSize = parseInt(request.getResponseHeader("Content-Length"));
+			that.buffer = new BitReader(new ArrayBuffer(that.fileSize));
+			that.buffer.writePos = 0;
+			that.loadNextChunk();
+		}
+	};
+	request.open('HEAD', url);
+	request.send();
+};
+
+jsmpeg.prototype.maybeLoadNextChunk = function() {
+	if( 
+		!this.chunkIsLoading && 
+		(this.buffer.index >> 3) > this.nextChunkLoadAt &&
+		this.progressiveLoadFails < 5
+	) {
+		this.loadNextChunk();
+	}
+};
+
+jsmpeg.prototype.loadNextChunk = function() {
+	var that = this;
+	var start = this.buffer.writePos,
+		end = Math.min(this.buffer.writePos + that.progressiveChunkSize-1, this.fileSize-1);
+	
+	if( start >= this.fileSize ) {
+		return;
+	}
+	
+	this.chunkIsLoading = true;
+	this.chunkLoadStart = Date.now();
+	var request = new XMLHttpRequest();
+
+	request.onreadystatechange = function() {		
+		if( 
+			request.readyState === request.DONE && 
+			request.status > 200 && request.status < 300
+		) {
+			that.progressiveLoadFails = 0;
+			that.progressiveLoadCallback(request.response);
+		}
+		else if( request.readyState === request.DONE ) {
+			// retry
+			that.chunkIsLoading = false;
+			that.progressiveLoadFails++;
+			that.maybeLoadNextChunk();
+		}
+	};
+	
+	if( start === 0 ) {
+		request.onprogress = this.gl 
+			? this.updateLoaderGL.bind(this) 
+			: this.updateLoader2D.bind(this);
+	}
+
+	request.open('GET', this.url+'?'+start+"-"+end);
+	request.setRequestHeader("Range", "bytes="+start+"-"+end);
+	request.responseType = "arraybuffer";
+	request.send();
+};
+
+jsmpeg.prototype.canPlayThrough = false;
+
+jsmpeg.prototype.progressiveLoadCallback = function(data) {
+	this.chunkIsLoading = false;
+	var isFirstChunk = (this.buffer.writePos === 0);
+	
+	var bytes = new Uint8Array(data);
+	this.buffer.bytes.set(bytes, this.buffer.writePos);
+	this.buffer.writePos += bytes.length;
+	
+	if( isFirstChunk ) {
+		this.findStartCode(START_SEQUENCE);
+		this.firstSequenceHeader = this.buffer.index;
+		this.decodeSequenceHeader();
+	}
+		
+	var loadTime = (Date.now() - this.chunkLoadStart)/1000;	
+	
+	// Throttled loading and playback did start already? Calculate when 
+	// the next chunk needs to be loaded
+	var playIndex = (this.buffer.index >> 3);
+	var bytesPerSecondLoaded = bytes.length / loadTime;
+	var bytesPerSecondPlayed = 0;
+
+	if( this.currentTime > 0 ) {
+		bytesPerSecondPlayed = playIndex / this.currentTime;
+	}
+	else {
+		// Playback didn't start - we need to count the frames we got and estimate the bytes per second
+		var currentIndex = this.buffer.index;
+		this.buffer.index = (this.buffer.writePos - bytes.length) << 3;
+		var frames;
+		for( frames = 0; this.findStartCode(START_PICTURE) !== BitReader.NOT_FOUND; frames++ ) {}
+		this.buffer.index = currentIndex;
+		bytesPerSecondPlayed = bytes.length/(frames / this.pictureRate);
+	}
+	
+	
+	var remainingTimeToPlay = (this.buffer.writePos - playIndex) / bytesPerSecondPlayed;
+	var remainingTimeToLoad = (this.fileSize - this.buffer.writePos) / bytesPerSecondLoaded;
+	var totalRemainingPlayTime = (this.fileSize-playIndex) / bytesPerSecondPlayed;
+	this.canPlayThrough = totalRemainingPlayTime > remainingTimeToLoad;
+
+	// Do we have a lot more remaining play time than we typically need for loading? 
+	// -> Increase the chunk size for the next load
+	if( remainingTimeToPlay > loadTime * 8 ) {
+		this.progressiveChunkSize = Math.min(this.progressiveChunkSize * 2, this.progressiveChunkSizeMax);
+	}
+	
+	// Start loading at the latest when only one chunk is left to play, but subtract twice as
+	// much bytes as the next chunk will take to load than it will to play
+	if( this.progressiveThrottled && this.canPlayThrough ) {
+		this.nextChunkLoadAt = this.buffer.writePos 
+			- this.progressiveChunkSize * 2
+			- this.progressiveChunkSize * (bytesPerSecondPlayed / bytesPerSecondLoaded) * 4;
+	}
+	else {
+		this.nextChunkLoadAt = 0;
+	}
+
+	if( this.buffer.writePos >= this.fileSize ) {
+		// All loaded. We don't need to schedule another load
+		this.lastFrameIndex = this.buffer.writePos << 3;
+		this.canPlayThrough = true;
+
+		if( this.seekable ) {
+			var currentBufferPos = this.buffer.index;
+			this.buffer.index = 0;
+			this.collectIntraFrames();
+			this.buffer.index = currentBufferPos;
+		}
+		if( this.externalLoadCallback ) {
+			this.externalLoadCallback(this);
+		}
+	}
+	else {
+	 	this.lastFrameIndex =  this.findLastPictureStartCode();
+	 	this.maybeLoadNextChunk();
+	 }
+	
+	this.attemptToPlay();
+};
+
+jsmpeg.prototype.findLastPictureStartCode = function() {
+	var bufferBytes = this.buffer.bytes;
+	for( var i = this.buffer.writePos; i > 3; i-- ) {
+		if(
+			bufferBytes[i] == START_PICTURE &&
+			bufferBytes[i-1] == 0x01 &&
+			bufferBytes[i-2] == 0x00 &&
+			bufferBytes[i-3] == 0x00			
+		) {
+			return (i-3) << 3;
+		}
+	}
+	return 0;
+};
+
+jsmpeg.prototype.attemptToPlay = function() {
+	if( this.playing || !this.wantsToPlay || !this.canPlayThrough ) { 
+		return;
+	}
+	this._playNow();
 };
 
 
@@ -559,7 +656,7 @@ jsmpeg.prototype.nextFrame = function() {
 	var frameStart = this.now();
 	while(true) {
 		var code = this.buffer.findNextMPEGStartCode();
-
+		
 		if( code === START_SEQUENCE ) {
 			this.decodeSequenceHeader();
 		}
@@ -567,8 +664,10 @@ jsmpeg.prototype.nextFrame = function() {
 			if( this.progressive && this.buffer.index >= this.lastFrameIndex ) {
 				// Starved
 				this.playing = false;
+				this.maybeLoadNextChunk();
 				return;
 			}
+			
 			if( this.playing ) {
 				this.scheduleNextFrame();
 			}
@@ -738,6 +837,10 @@ jsmpeg.prototype.forwardF = 0;
 jsmpeg.prototype.decodePicture = function(skipOutput) {
 	this.currentFrame++;
 	this.currentTime = this.currentFrame / this.pictureRate;
+
+	if( this.progressive ) {
+		this.maybeLoadNextChunk();
+	}
 
 	this.buffer.advance(10); // skip temporalReference
 	this.pictureCodingType = this.buffer.getBits(3);
