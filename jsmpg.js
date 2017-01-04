@@ -1,15 +1,6 @@
 (function(window){ 'use strict';
 
-var requestAnimFrame = (function(){
-	return window.requestAnimationFrame ||
-		window.webkitRequestAnimationFrame ||
-		window.mozRequestAnimationFrame ||
-		function( callback ){
-			window.setTimeout(callback, 1000 / 60);
-		};
-})();
-
-var jsmpeg = window.jsmpeg = function( url, opts ) {
+var jsmpeg = window.jsmpeg = function(url, opts) {
 	opts = opts || {};
 	this.benchmark = !!opts.benchmark;
 	this.canvas = opts.canvas || document.createElement('canvas');
@@ -23,7 +14,7 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 
 	this.progressive = !!opts.progressive;
 	this.progressiveThrottled = !!opts.progressiveThrottled;
-	this.progressiveChunkSize = opts.progressiveChunkSize || 256*1024;
+	this.progressiveChunkSize = opts.progressiveChunkSize || 256 * 1024;
 	this.progressiveChunkSizeMax = 4 * 1024 * 1024;
 
 	this.customIntraQuantMatrix = new Uint8Array(64);
@@ -32,15 +23,18 @@ var jsmpeg = window.jsmpeg = function( url, opts ) {
 	this.zeroBlockData = new Int32Array(64);
 	this.fillArray(this.zeroBlockData, 0);
 
-	// use WebGL for YCbCrToRGBA conversion if possible (much faster)
-	if( !opts.forceCanvas2D && this.initWebGL() ) {
+	// Use WebGL for YCbCrToRGBA conversion if possible (much faster)
+	if (!opts.forceCanvas2D && this.initWebGL()) {
 		this.renderFrame = this.renderFrameGL;
-	} else {
+		this.updateLoader = this.updateLoaderGL;
+	}
+	else {
 		this.canvasContext = this.canvas.getContext('2d');
 		this.renderFrame = this.renderFrame2D;
+		this.updateLoader = this.updateLoader2D;
 	}
 
-	if( url instanceof WebSocket ) {
+	if (url instanceof WebSocket) {
 		this.client = url;
 		this.client.onopen = this.initSocketClient.bind(this);
 	}
@@ -72,11 +66,11 @@ jsmpeg.prototype.initSocketClient = function() {
 	this.client.onmessage = this.receiveSocketMessage.bind(this);
 };
 
-jsmpeg.prototype.decodeSocketHeader = function( data ) {
+jsmpeg.prototype.decodeSocketHeader = function(data) {
 	// Custom header sent to all newly connected clients when streaming
 	// over websockets:
 	// struct { char magic[4] = 'jsmp'; unsigned short width, height; };
-	if(
+	if (
 		data[0] === SOCKET_MAGIC_BYTES.charCodeAt(0) &&
 		data[1] === SOCKET_MAGIC_BYTES.charCodeAt(1) &&
 		data[2] === SOCKET_MAGIC_BYTES.charCodeAt(2) &&
@@ -88,17 +82,17 @@ jsmpeg.prototype.decodeSocketHeader = function( data ) {
 	}
 };
 
-jsmpeg.prototype.receiveSocketMessage = function( event ) {
+jsmpeg.prototype.receiveSocketMessage = function(event) {
 	var messageData = new Uint8Array(event.data);
 
-	if( !this.sequenceStarted ) {
+	if (!this.sequenceStarted) {
 		this.decodeSocketHeader(messageData);
 	}
 
 	var current = this.buffer;
 	var next = this.nextPictureBuffer;
 
-	if( next.writePos + messageData.length > next.length ) {
+	if (next.writePos + messageData.length > next.length) {
 		next.lastWriteBeforeWrap = next.writePos;
 		next.writePos = 0;
 		next.index = 0;
@@ -108,9 +102,9 @@ jsmpeg.prototype.receiveSocketMessage = function( event ) {
 	next.writePos += messageData.length;
 
 	var startCode = 0;
-	while( true ) {
+	while (true) {
 		startCode = next.findNextMPEGStartCode();
-		if(
+		if (
 			startCode === BitReader.NOT_FOUND ||
 			((next.index >> 3) > next.writePos)
 		) {
@@ -119,7 +113,7 @@ jsmpeg.prototype.receiveSocketMessage = function( event ) {
 			next.index = Math.max((next.writePos-3), 0) << 3;
 			return;
 		}
-		else if( startCode === START_PICTURE ) {
+		else if (startCode === START_PICTURE) {
 			break;
 		}
 	}
@@ -128,9 +122,9 @@ jsmpeg.prototype.receiveSocketMessage = function( event ) {
 
 
 	// Skip picture decoding until we find the first intra frame?
-	if( this.waitForIntraFrame ) {
+	if (this.waitForIntraFrame) {
 		next.advance(10); // skip temporalReference
-		if( next.getBits(3) === PICTURE_TYPE_I ) {
+		if (next.getBits(3) === PICTURE_TYPE_I) {
 			this.waitForIntraFrame = false;
 			next.chunkBegin = (next.index-13) >> 3;
 		}
@@ -139,7 +133,7 @@ jsmpeg.prototype.receiveSocketMessage = function( event ) {
 
 	// Last picture hasn't been decoded yet? Decode now but skip output
 	// before scheduling the next one
-	if( !this.currentPictureDecoded ) {
+	if (!this.currentPictureDecoded) {
 		this.decodePicture(DECODE_SKIP_OUTPUT);
 	}
 
@@ -147,7 +141,7 @@ jsmpeg.prototype.receiveSocketMessage = function( event ) {
 	// Copy the picture chunk over to 'this.buffer' and schedule decoding.
 	var chunkEnd = ((next.index) >> 3);
 
-	if( chunkEnd > next.chunkBegin ) {
+	if (chunkEnd > next.chunkBegin) {
 		// Just copy the current picture chunk
 		current.bytes.set( next.bytes.subarray(next.chunkBegin, chunkEnd) );
 		current.writePos = chunkEnd - next.chunkBegin;
@@ -166,14 +160,11 @@ jsmpeg.prototype.receiveSocketMessage = function( event ) {
 
 	// Decode!
 	this.currentPictureDecoded = false;
-	requestAnimFrame( this.scheduleDecoding.bind(this), this.canvas );
+	setTimeout(function(){
+		this.decodePicture();
+		this.currentPictureDecoded = true;
+	}.bind(this));
 };
-
-jsmpeg.prototype.scheduleDecoding = function() {
-	this.decodePicture();
-	this.currentPictureDecoded = true;
-};
-
 
 
 // ----------------------------------------------------------------------------
@@ -192,7 +183,7 @@ jsmpeg.prototype.canRecord = function(){
 };
 
 jsmpeg.prototype.startRecording = function(callback) {
-	if( !this.canRecord() ) {
+	if (!this.canRecord()) {
 		return;
 	}
 
@@ -223,15 +214,15 @@ jsmpeg.prototype.startRecording = function(callback) {
 };
 
 jsmpeg.prototype.recordFrameFromCurrentBuffer = function() {
-	if( !this.isRecording ) { return; }
+	if (!this.isRecording) { return; }
 
-	if( this.recorderWaitForIntraFrame ) {
+	if (this.recorderWaitForIntraFrame) {
 		// Not an intra frame? Exit.
-		if( this.pictureCodingType !== PICTURE_TYPE_I ) { return; }
+		if (this.pictureCodingType !== PICTURE_TYPE_I) { return; }
 
 		// Start recording!
 		this.recorderWaitForIntraFrame = false;
-		if( this.didStartRecordingCallback ) {
+		if (this.didStartRecordingCallback) {
 			this.didStartRecordingCallback( this );
 		}
 	}
@@ -266,27 +257,24 @@ jsmpeg.prototype.currentTime = 0;
 jsmpeg.prototype.frameCount = 0;
 jsmpeg.prototype.duration = 0;
 	
-jsmpeg.prototype.load = function( url ) {
+jsmpeg.prototype.load = function(url) {
 	this.url = url;
 
 	var request = new XMLHttpRequest();
 	var that = this;
 	request.onreadystatechange = function() {
-		if( request.readyState == request.DONE && request.status == 200 ) {
+		if (request.readyState == request.DONE && request.status == 200) {
 			that.loadCallback(request.response);
 		}
 	};
 
-	request.onprogress = this.gl 
-		? this.updateLoaderGL.bind(this) 
-		: this.updateLoader2D.bind(this);
-
+	request.onprogress = this.updateLoader.bind(this);
 	request.open('GET', url);
 	request.responseType = "arraybuffer";
 	request.send();
 };
 
-jsmpeg.prototype.updateLoader2D = function( ev ) {
+jsmpeg.prototype.updateLoader2D = function(ev) {
 	var 
 		p = ev.loaded / ev.total,
 		w = this.canvas.width,
@@ -299,7 +287,7 @@ jsmpeg.prototype.updateLoader2D = function( ev ) {
 	ctx.fillRect(0, h - h*p, w, h*p);
 };
 
-jsmpeg.prototype.updateLoaderGL = function( ev ) {
+jsmpeg.prototype.updateLoaderGL = function(ev) {
 	var gl = this.gl;
 	gl.uniform1f(gl.getUniformLocation(this.loadingProgram, 'loaded'), (ev.loaded / ev.total));
 	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -308,7 +296,7 @@ jsmpeg.prototype.updateLoaderGL = function( ev ) {
 jsmpeg.prototype.loadCallback = function(file) {
 	this.buffer = new BitReader(file);
 
-	if( this.seekable ) {
+	if (this.seekable) {
 		this.collectIntraFrames();
 		this.buffer.index = 0;
 	}
@@ -323,11 +311,11 @@ jsmpeg.prototype.loadCallback = function(file) {
 	// Load the first frame
 	this.nextFrame();
 	
-	if( this.autoplay ) {
+	if (this.autoplay) {
 		this.play();
 	}
 
-	if( this.externalLoadCallback ) {
+	if (this.externalLoadCallback) {
 		this.externalLoadCallback(this);
 	}
 };
@@ -336,11 +324,11 @@ jsmpeg.prototype.collectIntraFrames = function() {
 	// Loop through the whole buffer and collect all intraFrames to build our seek index.
 	// We also keep track of total frame count here
 	var frame;
-	for( frame = 0; this.findStartCode(START_PICTURE) !== BitReader.NOT_FOUND; frame++ ) {
+	for (frame = 0; this.findStartCode(START_PICTURE) !== BitReader.NOT_FOUND; frame++) {
 
 		// Check if the found picture is an intra frame and remember the position
 		this.buffer.advance(10); // skip temporalReference
-		if( this.buffer.getBits(3) === PICTURE_TYPE_I ) {
+		if (this.buffer.getBits(3) === PICTURE_TYPE_I) {
 			// Remember index 13 bits back, before temporalReference and picture type
 			this.intraFrames.push({frame: frame, index: this.buffer.index - 13});
 		}
@@ -350,13 +338,13 @@ jsmpeg.prototype.collectIntraFrames = function() {
 };
 
 jsmpeg.prototype.seekToFrame = function(seekFrame, seekExact) {
-	if( seekFrame < 0 || seekFrame >= this.frameCount || !this.intraFrames.length ) {
+	if (seekFrame < 0 || seekFrame >= this.frameCount || !this.intraFrames.length) {
 		return false;
 	}
 
 	// Find the last intra frame before or equal to seek frame
 	var target = null;
-	for( var i = 0; i < this.intraFrames.length && this.intraFrames[i].frame <= seekFrame; i++ ) {
+	for (var i = 0; i < this.intraFrames.length && this.intraFrames[i].frame <= seekFrame; i++) {
 		target = this.intraFrames[i];
 	}
 
@@ -365,8 +353,8 @@ jsmpeg.prototype.seekToFrame = function(seekFrame, seekExact) {
 
 	// If we're seeking to the exact frame, we may have to decode some more frames before
 	// the one we want
-	if( seekExact ) {
-		for( var frame = target.frame; frame < seekFrame; frame++ ) {
+	if (seekExact) {
+		for (var frame = target.frame; frame < seekFrame; frame++) {
 			this.decodePicture(DECODE_SKIP_OUTPUT);
 			this.findStartCode(START_PICTURE);
 		}
@@ -383,8 +371,8 @@ jsmpeg.prototype.seekToTime = function(time, seekExact) {
 };
 
 jsmpeg.prototype.play = function() {
-	if( this.playing ) { return; }
-	if( this.progressive ) {
+	if (this.playing) { return; }
+	if (this.progressive) {
 		this.wantsToPlay = true;
 		this.attemptToPlay();
 	}
@@ -408,11 +396,11 @@ jsmpeg.prototype.stop = function() {
 	this.currentFrame = -1;
 	this.currentTime = 0;
 	this.wantsToPlay = false;
-	if( this.buffer ) {
+	if (this.buffer) {
 		this.buffer.index = this.firstSequenceHeader;
 	}
 	this.playing = false;
-	if( this.client ) {
+	if (this.client) {
 		this.client.close();
 		this.client = null;
 	}
@@ -423,7 +411,7 @@ jsmpeg.prototype.stop = function() {
 // ----------------------------------------------------------------------------
 // Progressive loading via AJAX
 
-jsmpeg.prototype.beginProgressiveLoad = function( url ) {
+jsmpeg.prototype.beginProgressiveLoad = function(url) {
 	this.url = url;
 	
 	this.progressiveLoadPositon = 0;
@@ -432,7 +420,7 @@ jsmpeg.prototype.beginProgressiveLoad = function( url ) {
 	var request = new XMLHttpRequest();
 	var that = this;
 	request.onreadystatechange = function() {
-		if( request.readyState === request.DONE ) {
+		if (request.readyState === request.DONE) {
 			that.fileSize = parseInt(request.getResponseHeader("Content-Length"));
 			that.buffer = new BitReader(new ArrayBuffer(that.fileSize));
 			that.buffer.writePos = 0;
@@ -444,7 +432,7 @@ jsmpeg.prototype.beginProgressiveLoad = function( url ) {
 };
 
 jsmpeg.prototype.maybeLoadNextChunk = function() {
-	if( 
+	if (
 		!this.chunkIsLoading && 
 		(this.buffer.index >> 3) > this.nextChunkLoadAt &&
 		this.progressiveLoadFails < 5
@@ -458,7 +446,7 @@ jsmpeg.prototype.loadNextChunk = function() {
 	var start = this.buffer.writePos,
 		end = Math.min(this.buffer.writePos + that.progressiveChunkSize-1, this.fileSize-1);
 	
-	if( start >= this.fileSize ) {
+	if (start >= this.fileSize) {
 		return;
 	}
 	
@@ -467,14 +455,14 @@ jsmpeg.prototype.loadNextChunk = function() {
 	var request = new XMLHttpRequest();
 
 	request.onreadystatechange = function() {		
-		if( 
+		if (
 			request.readyState === request.DONE && 
 			request.status > 200 && request.status < 300
 		) {
 			that.progressiveLoadFails = 0;
 			that.progressiveLoadCallback(request.response);
 		}
-		else if( request.readyState === request.DONE ) {
+		else if (request.readyState === request.DONE) {
 			// retry
 			that.chunkIsLoading = false;
 			that.progressiveLoadFails++;
@@ -482,10 +470,8 @@ jsmpeg.prototype.loadNextChunk = function() {
 		}
 	};
 	
-	if( start === 0 ) {
-		request.onprogress = this.gl 
-			? this.updateLoaderGL.bind(this) 
-			: this.updateLoader2D.bind(this);
+	if (start === 0) {
+		request.onprogress = this.updateLoader.bind(this);
 	}
 
 	request.open('GET', this.url+'?'+start+"-"+end);
@@ -504,7 +490,7 @@ jsmpeg.prototype.progressiveLoadCallback = function(data) {
 	this.buffer.bytes.set(bytes, this.buffer.writePos);
 	this.buffer.writePos += bytes.length;
 	
-	if( isFirstChunk ) {
+	if (isFirstChunk) {
 		this.findStartCode(START_SEQUENCE);
 		this.firstSequenceHeader = this.buffer.index;
 		this.decodeSequenceHeader();
@@ -518,7 +504,7 @@ jsmpeg.prototype.progressiveLoadCallback = function(data) {
 	var bytesPerSecondLoaded = bytes.length / loadTime;
 	var bytesPerSecondPlayed = 0;
 
-	if( this.currentTime > 0 ) {
+	if (this.currentTime > 0) {
 		bytesPerSecondPlayed = playIndex / this.currentTime;
 	}
 	else {
@@ -526,7 +512,7 @@ jsmpeg.prototype.progressiveLoadCallback = function(data) {
 		var currentIndex = this.buffer.index;
 		this.buffer.index = (this.buffer.writePos - bytes.length) << 3;
 		var frames;
-		for( frames = 0; this.findStartCode(START_PICTURE) !== BitReader.NOT_FOUND; frames++ ) {}
+		for (frames = 0; this.findStartCode(START_PICTURE) !== BitReader.NOT_FOUND; frames++) {}
 		this.buffer.index = currentIndex;
 		bytesPerSecondPlayed = bytes.length/(frames / this.pictureRate);
 	}
@@ -539,13 +525,13 @@ jsmpeg.prototype.progressiveLoadCallback = function(data) {
 
 	// Do we have a lot more remaining play time than we typically need for loading? 
 	// -> Increase the chunk size for the next load
-	if( remainingTimeToPlay > loadTime * 8 ) {
+	if (remainingTimeToPlay > loadTime * 8) {
 		this.progressiveChunkSize = Math.min(this.progressiveChunkSize * 2, this.progressiveChunkSizeMax);
 	}
 	
 	// Start loading at the latest when only one chunk is left to play, but subtract twice as
 	// much bytes as the next chunk will take to load than it will to play
-	if( this.progressiveThrottled && this.canPlayThrough ) {
+	if (this.progressiveThrottled && this.canPlayThrough) {
 		this.nextChunkLoadAt = this.buffer.writePos 
 			- this.progressiveChunkSize * 2
 			- this.progressiveChunkSize * (bytesPerSecondPlayed / bytesPerSecondLoaded) * 4;
@@ -554,23 +540,23 @@ jsmpeg.prototype.progressiveLoadCallback = function(data) {
 		this.nextChunkLoadAt = 0;
 	}
 
-	if( this.buffer.writePos >= this.fileSize ) {
+	if (this.buffer.writePos >= this.fileSize) {
 		// All loaded. We don't need to schedule another load
 		this.lastFrameIndex = this.buffer.writePos << 3;
 		this.canPlayThrough = true;
 
-		if( this.seekable ) {
+		if (this.seekable) {
 			var currentBufferPos = this.buffer.index;
 			this.buffer.index = 0;
 			this.collectIntraFrames();
 			this.buffer.index = currentBufferPos;
 		}
-		if( this.externalLoadCallback ) {
+		if (this.externalLoadCallback) {
 			this.externalLoadCallback(this);
 		}
 	}
 	else {
-	 	this.lastFrameIndex =  this.findLastPictureStartCode();
+	 	this.lastFrameIndex = this.findLastPictureStartCode();
 	 	this.maybeLoadNextChunk();
 	 }
 	
@@ -579,8 +565,8 @@ jsmpeg.prototype.progressiveLoadCallback = function(data) {
 
 jsmpeg.prototype.findLastPictureStartCode = function() {
 	var bufferBytes = this.buffer.bytes;
-	for( var i = this.buffer.writePos; i > 3; i-- ) {
-		if(
+	for (var i = this.buffer.writePos; i > 3; i--) {
+		if (
 			bufferBytes[i] == START_PICTURE &&
 			bufferBytes[i-1] == 0x01 &&
 			bufferBytes[i-2] == 0x00 &&
@@ -593,7 +579,7 @@ jsmpeg.prototype.findLastPictureStartCode = function() {
 };
 
 jsmpeg.prototype.attemptToPlay = function() {
-	if( this.playing || !this.wantsToPlay || !this.canPlayThrough ) { 
+	if (this.playing || !this.wantsToPlay || !this.canPlayThrough) { 
 		return;
 	}
 	this._playNow();
@@ -608,15 +594,15 @@ jsmpeg.prototype.readCode = function(codeTable) {
 	var state = 0;
 	do {
 		state = codeTable[state + this.buffer.getBits(1)];
-	} while( state >= 0 && codeTable[state] !== 0 );
+	} while (state >= 0 && codeTable[state] !== 0 );
 	return codeTable[state+2];
 };
 
-jsmpeg.prototype.findStartCode = function( code ) {
+jsmpeg.prototype.findStartCode = function(code) {
 	var current = 0;
-	while( true ) {
+	while (true) {
 		current = this.buffer.findNextMPEGStartCode();
-		if( current === code || current === BitReader.NOT_FOUND ) {
+		if (current === code || current === BitReader.NOT_FOUND) {
 			return current;
 		}
 	}
@@ -624,7 +610,7 @@ jsmpeg.prototype.findStartCode = function( code ) {
 };
 
 jsmpeg.prototype.fillArray = function(a, value) {
-	for( var i = 0, length = a.length; i < length; i++ ) {
+	for (var i = 0, length = a.length; i < length; i++) {
 		a[i] = value;
 	}
 };
@@ -651,39 +637,39 @@ jsmpeg.prototype.now = function() {
 };
 
 jsmpeg.prototype.nextFrame = function() {
-	if( !this.buffer ) { return; }
+	if (!this.buffer) { return; }
 
 	var frameStart = this.now();
 	while(true) {
 		var code = this.buffer.findNextMPEGStartCode();
 		
-		if( code === START_SEQUENCE ) {
+		if (code === START_SEQUENCE) {
 			this.decodeSequenceHeader();
 		}
-		else if( code === START_PICTURE ) {
-			if( this.progressive && this.buffer.index >= this.lastFrameIndex ) {
+		else if (code === START_PICTURE) {
+			if (this.progressive && this.buffer.index >= this.lastFrameIndex) {
 				// Starved
 				this.playing = false;
 				this.maybeLoadNextChunk();
 				return;
 			}
 			
-			if( this.playing ) {
+			if (this.playing) {
 				this.scheduleNextFrame();
 			}
 			this.decodePicture();
 			this.benchDecodeTimes += this.now() - frameStart;
 			return this.canvas;
 		}
-		else if( code === BitReader.NOT_FOUND ) {
+		else if (code === BitReader.NOT_FOUND) {
 			this.stop(); // Jump back to the beginning
 
-			if( this.externalFinishedCallback ) {
+			if (this.externalFinishedCallback) {
 				this.externalFinishedCallback(this);
 			}
 
 			// Only loop if we found a sequence header
-			if( this.loop && this.sequenceStarted ) {
+			if (this.loop && this.sequenceStarted) {
 				this.play();
 			}
 			return null;
@@ -699,26 +685,17 @@ jsmpeg.prototype.scheduleNextFrame = function() {
 	var wait = Math.max(0, (1000/this.pictureRate) - this.lateTime);
 	this.targetTime = this.now() + wait;
 
-	if( this.benchmark ) {
+	if (this.benchmark) {
 		this.benchFrame++;
-		if( this.benchFrame >= 120 ) {
+		if (this.benchFrame >= 120) {
 			this.benchAvgFrameTime = this.benchDecodeTimes / this.benchFrame;
 			this.benchFrame = 0;
 			this.benchDecodeTimes = 0;
-			if( window.console ) { console.log('Average time per frame:', this.benchAvgFrameTime, 'ms'); }
+			if (window.console) { console.log('Average time per frame:', this.benchAvgFrameTime, 'ms'); }
 		}
 		setTimeout( this.nextFrame.bind(this), 0);
 	}
-	else if( wait < 18) {
-		this.scheduleAnimation();
-	}
-	else {
-		setTimeout( this.scheduleAnimation.bind(this), wait );
-	}
-};
-
-jsmpeg.prototype.scheduleAnimation = function() {
-	requestAnimFrame( this.nextFrame.bind(this), this.canvas );
+	setTimeout(this.nextFrame.bind(this), Math.max(wait,1));
 };
 
 jsmpeg.prototype.decodeSequenceHeader = function() {
@@ -732,15 +709,15 @@ jsmpeg.prototype.decodeSequenceHeader = function() {
 
 	var i;
 
-	if( this.buffer.getBits(1) ) { // load custom intra quant matrix?
-		for( i = 0; i < 64; i++ ) {
+	if (this.buffer.getBits(1)) { // load custom intra quant matrix?
+		for (i = 0; i < 64; i++) {
 			this.customIntraQuantMatrix[ZIG_ZAG[i]] = this.buffer.getBits(8);
 		}
 		this.intraQuantMatrix = this.customIntraQuantMatrix;
 	}
 
-	if( this.buffer.getBits(1) ) { // load custom non intra quant matrix?
-		for( i = 0; i < 64; i++ ) {
+	if (this.buffer.getBits(1)) { // load custom non intra quant matrix?
+		for (i = 0; i < 64; i++) {
 			this.customNonIntraQuantMatrix[ZIG_ZAG[i]] = this.buffer.getBits(8);
 		}
 		this.nonIntraQuantMatrix = this.customNonIntraQuantMatrix;
@@ -764,14 +741,14 @@ jsmpeg.prototype.initBuffers = function() {
 	this.quarterSize = this.codedSize >> 2;
 
 	// Sequence already started? Don't allocate buffers again
-	if( this.sequenceStarted ) { return; }
+	if (this.sequenceStarted) { return; }
 	this.sequenceStarted = true;
 
 
 	// Manually clamp values when writing macroblocks for shitty browsers
 	// that don't support Uint8ClampedArray
 	var MaybeClampedUint8Array = window.Uint8ClampedArray || window.Uint8Array;
-	if( !window.Uint8ClampedArray ) {
+	if (!window.Uint8ClampedArray) {
 		this.copyBlockToDestination = this.copyBlockToDestinationClamp;
 		this.addBlockToDestination = this.addBlockToDestinationClamp;
 	}
@@ -799,7 +776,7 @@ jsmpeg.prototype.initBuffers = function() {
 	this.canvas.width = this.width;
 	this.canvas.height = this.height;
 
-	if( this.gl ) {
+	if (this.gl) {
 		this.gl.useProgram(this.program);
 		this.gl.viewport(0, 0, this.width, this.height);
 	}
@@ -838,7 +815,7 @@ jsmpeg.prototype.decodePicture = function(skipOutput) {
 	this.currentFrame++;
 	this.currentTime = this.currentFrame / this.pictureRate;
 
-	if( this.progressive ) {
+	if (this.progressive) {
 		this.maybeLoadNextChunk();
 	}
 
@@ -847,15 +824,15 @@ jsmpeg.prototype.decodePicture = function(skipOutput) {
 	this.buffer.advance(16); // skip vbv_delay
 
 	// Skip B and D frames or unknown coding type
-	if( this.pictureCodingType <= 0 || this.pictureCodingType >= PICTURE_TYPE_B ) {
+	if (this.pictureCodingType <= 0 || this.pictureCodingType >= PICTURE_TYPE_B) {
 		return;
 	}
 
 	// full_pel_forward, forward_f_code
-	if( this.pictureCodingType === PICTURE_TYPE_P ) {
+	if (this.pictureCodingType === PICTURE_TYPE_P) {
 		this.fullPelForward = this.buffer.getBits(1);
 		this.forwardFCode = this.buffer.getBits(3);
-		if( this.forwardFCode === 0 ) {
+		if (this.forwardFCode === 0) {
 			// Ignore picture with zero forward_f_code
 			return;
 		}
@@ -866,10 +843,10 @@ jsmpeg.prototype.decodePicture = function(skipOutput) {
 	var code = 0;
 	do {
 		code = this.buffer.findNextMPEGStartCode();
-	} while( code === START_EXTENSION || code === START_USER_DATA );
+	} while (code === START_EXTENSION || code === START_USER_DATA );
 
 
-	while( code >= START_SLICE_FIRST && code <= START_SLICE_LAST ) {
+	while (code >= START_SLICE_FIRST && code <= START_SLICE_LAST) {
 		this.decodeSlice( (code & 0x000000FF) );
 		code = this.buffer.findNextMPEGStartCode();
 	}
@@ -881,16 +858,16 @@ jsmpeg.prototype.decodePicture = function(skipOutput) {
 	this.recordFrameFromCurrentBuffer();
 
 
-	if( skipOutput !== DECODE_SKIP_OUTPUT ) {
+	if (skipOutput !== DECODE_SKIP_OUTPUT) {
 		this.renderFrame();
 
-		if(this.externalDecodeCallback) {
+		if (this.externalDecodeCallback) {
 			this.externalDecodeCallback(this, this.canvas);
 		}
 	}
 
 	// If this is a reference picutre then rotate the prediction pointers
-	if( this.pictureCodingType === PICTURE_TYPE_I || this.pictureCodingType === PICTURE_TYPE_P ) {
+	if (this.pictureCodingType === PICTURE_TYPE_I || this.pictureCodingType === PICTURE_TYPE_P) {
 		var
 			tmpY = this.forwardY,
 			tmpY32 = this.forwardY32,
@@ -943,8 +920,8 @@ jsmpeg.prototype.YCbCrToRGBA = function() {
 
 	var cb, cr, r, g, b;
 
-	for( var row = 0; row < rows; row++ ) {
-		for( var col = 0; col < cols; col++ ) {
+	for (var row = 0; row < rows; row++) {
+		for (var col = 0; col < cols; col++) {
 			cb = pCb[cIndex];
 			cr = pCr[cIndex];
 			cIndex++;
@@ -1019,7 +996,7 @@ jsmpeg.prototype.compileShader = function(type, source) {
 	gl.shaderSource(shader, source);
 	gl.compileShader(shader);
 
-	if( !gl.getShaderParameter(shader, gl.COMPILE_STATUS) ) {
+	if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
 		throw new Error(gl.getShaderInfoLog(shader));
 	}
 
@@ -1051,7 +1028,7 @@ jsmpeg.prototype.initWebGL = function() {
 	gl.attachShader(this.program, this.compileShader(gl.FRAGMENT_SHADER, SHADER_FRAGMENT_YCBCRTORGBA));
 	gl.linkProgram(this.program);
 
-	if( !gl.getProgramParameter(this.program, gl.LINK_STATUS) ) {
+	if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
 		throw new Error(gl.getProgramInfoLog(this.program));
 	}
 
@@ -1128,14 +1105,14 @@ jsmpeg.prototype.decodeSlice = function(slice) {
 	this.quantizerScale = this.buffer.getBits(5);
 
 	// skip extra bits
-	while( this.buffer.getBits(1) ) {
+	while (this.buffer.getBits(1)) {
 		this.buffer.advance(8);
 	}
 
 	do {
 		this.decodeMacroblock();
 		// We may have to ignore Video Stream Start Codes here (0xE0)!?
-	} while( !this.buffer.nextBytesAreStartCode() );
+	} while (!this.buffer.nextBytesAreStartCode() );
 };
 
 
@@ -1161,11 +1138,11 @@ jsmpeg.prototype.decodeMacroblock = function() {
 		increment = 0,
 		t = this.readCode(MACROBLOCK_ADDRESS_INCREMENT);
 
-	while( t === 34 ) {
+	while (t === 34) {
 		// macroblock_stuffing
 		t = this.readCode(MACROBLOCK_ADDRESS_INCREMENT);
 	}
-	while( t === 35 ) {
+	while (t === 35) {
 		// macroblock_escape
 		increment += 33;
 		t = this.readCode(MACROBLOCK_ADDRESS_INCREMENT);
@@ -1173,32 +1150,32 @@ jsmpeg.prototype.decodeMacroblock = function() {
 	increment += t;
 
 	// Process any skipped macroblocks
-	if( this.sliceBegin ) {
+	if (this.sliceBegin) {
 		// The first macroblock_address_increment of each slice is relative
 		// to beginning of the preverious row, not the preverious macroblock
 		this.sliceBegin = false;
 		this.macroblockAddress += increment;
 	}
 	else {
-		if( this.macroblockAddress + increment >= this.mbSize ) {
+		if (this.macroblockAddress + increment >= this.mbSize) {
 			// Illegal (too large) macroblock_address_increment
 			return;
 		}
-		if( increment > 1 ) {
+		if (increment > 1) {
 			// Skipped macroblocks reset DC predictors
 			this.dcPredictorY  = 128;
 			this.dcPredictorCr = 128;
 			this.dcPredictorCb = 128;
 
 			// Skipped macroblocks in P-pictures reset motion vectors
-			if( this.pictureCodingType === PICTURE_TYPE_P ) {
+			if (this.pictureCodingType === PICTURE_TYPE_P) {
 				this.motionFwH = this.motionFwHPrev = 0;
 				this.motionFwV = this.motionFwVPrev = 0;
 			}
 		}
 
 		// Predict skipped macroblocks
-		while( increment > 1) {
+		while (increment > 1) {
 			this.macroblockAddress++;
 			this.mbRow = (this.macroblockAddress / this.mbWidth)|0;
 			this.mbCol = this.macroblockAddress % this.mbWidth;
@@ -1216,11 +1193,11 @@ jsmpeg.prototype.decodeMacroblock = function() {
 	this.macroblockMotFw = (this.macroblockType & 0x08);
 
 	// Quantizer scale
-	if( (this.macroblockType & 0x10) !== 0 ) {
+	if ((this.macroblockType & 0x10) !== 0) {
 		this.quantizerScale = this.buffer.getBits(5);
 	}
 
-	if( this.macroblockIntra ) {
+	if (this.macroblockIntra) {
 		// Intra-coded macroblocks reset motion vectors
 		this.motionFwH = this.motionFwHPrev = 0;
 		this.motionFwV = this.motionFwVPrev = 0;
@@ -1240,8 +1217,8 @@ jsmpeg.prototype.decodeMacroblock = function() {
 		? this.readCode(CODE_BLOCK_PATTERN)
 		: (this.macroblockIntra ? 0x3f : 0);
 
-	for( var block = 0, mask = 0x20; block < 6; block++ ) {
-		if( (cbp & mask) !== 0 ) {
+	for (var block = 0, mask = 0x20; block < 6; block++) {
+		if ((cbp & mask) !== 0) {
 			this.decodeBlock(block);
 		}
 		mask >>= 1;
@@ -1253,13 +1230,13 @@ jsmpeg.prototype.decodeMotionVectors = function() {
 	var code, d, r = 0;
 
 	// Forward
-	if( this.macroblockMotFw ) {
+	if (this.macroblockMotFw) {
 		// Horizontal forward
 		code = this.readCode(MOTION);
-		if( (code !== 0) && (this.forwardF !== 1) ) {
+		if ((code !== 0) && (this.forwardF !== 1)) {
 			r = this.buffer.getBits(this.forwardRSize);
 			d = ((Math.abs(code) - 1) << this.forwardRSize) + r + 1;
-			if( code < 0 ) {
+			if (code < 0) {
 				d = -d;
 			}
 		}
@@ -1268,24 +1245,24 @@ jsmpeg.prototype.decodeMotionVectors = function() {
 		}
 
 		this.motionFwHPrev += d;
-		if( this.motionFwHPrev > (this.forwardF << 4) - 1 ) {
+		if (this.motionFwHPrev > (this.forwardF << 4) - 1) {
 			this.motionFwHPrev -= this.forwardF << 5;
 		}
-		else if( this.motionFwHPrev < ((-this.forwardF) << 4) ) {
+		else if (this.motionFwHPrev < ((-this.forwardF) << 4)) {
 			this.motionFwHPrev += this.forwardF << 5;
 		}
 
 		this.motionFwH = this.motionFwHPrev;
-		if( this.fullPelForward ) {
+		if (this.fullPelForward) {
 			this.motionFwH <<= 1;
 		}
 
 		// Vertical forward
 		code = this.readCode(MOTION);
-		if( (code !== 0) && (this.forwardF !== 1) ) {
+		if ((code !== 0) && (this.forwardF !== 1)) {
 			r = this.buffer.getBits(this.forwardRSize);
 			d = ((Math.abs(code) - 1) << this.forwardRSize) + r + 1;
-			if( code < 0 ) {
+			if (code < 0) {
 				d = -d;
 			}
 		}
@@ -1294,26 +1271,26 @@ jsmpeg.prototype.decodeMotionVectors = function() {
 		}
 
 		this.motionFwVPrev += d;
-		if( this.motionFwVPrev > (this.forwardF << 4) - 1 ) {
+		if (this.motionFwVPrev > (this.forwardF << 4) - 1) {
 			this.motionFwVPrev -= this.forwardF << 5;
 		}
-		else if( this.motionFwVPrev < ((-this.forwardF) << 4) ) {
+		else if (this.motionFwVPrev < ((-this.forwardF) << 4)) {
 			this.motionFwVPrev += this.forwardF << 5;
 		}
 
 		this.motionFwV = this.motionFwVPrev;
-		if( this.fullPelForward ) {
+		if (this.fullPelForward) {
 			this.motionFwV <<= 1;
 		}
 	}
-	else if( this.pictureCodingType === PICTURE_TYPE_P ) {
+	else if (this.pictureCodingType === PICTURE_TYPE_P) {
 		// No motion information in P-picture, reset vectors
 		this.motionFwH = this.motionFwHPrev = 0;
 		this.motionFwV = this.motionFwVPrev = 0;
 	}
 };
 
-jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
+jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb) {
 	var
 		width, scan,
 		H, V, oddH, oddV,
@@ -1339,11 +1316,11 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 
 	var x;
 	var y1, y2, y;
-	if( oddH ) {
-		if( oddV ) {
-			while( dest < last ) {
+	if (oddH) {
+		if (oddV) {
+			while (dest < last) {
 				y1 = sY[src] + sY[src+width]; src++;
-				for( x = 0; x < 4; x++ ) {
+				for (x = 0; x < 4; x++) {
 					y2 = sY[src] + sY[src+width]; src++;
 					y = (((y1 + y2 + 2) >> 2) & 0xff);
 
@@ -1362,9 +1339,9 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 			}
 		}
 		else {
-			while( dest < last ) {
+			while (dest < last) {
 				y1 = sY[src++];
-				for( x = 0; x < 4; x++ ) {
+				for (x = 0; x < 4; x++) {
 					y2 = sY[src++];
 					y = (((y1 + y2 + 1) >> 1) & 0xff);
 
@@ -1384,9 +1361,9 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 		}
 	}
 	else {
-		if( oddV ) {
-			while( dest < last ) {
-				for( x = 0; x < 4; x++ ) {
+		if (oddV) {
+			while (dest < last) {
+				for (x = 0; x < 4; x++) {
 					y = (((sY[src] + sY[src+width] + 1) >> 1) & 0xff); src++;
 					y |= (((sY[src] + sY[src+width] + 1) << 7) & 0xff00); src++;
 					y |= (((sY[src] + sY[src+width] + 1) << 15) & 0xff0000); src++;
@@ -1398,8 +1375,8 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 			}
 		}
 		else {
-			while( dest < last ) {
-				for( x = 0; x < 4; x++ ) {
+			while (dest < last) {
+				for (x = 0; x < 4; x++) {
 					y = sY[src]; src++;
 					y |= sY[src] << 8; src++;
 					y |= sY[src] << 16; src++;
@@ -1428,13 +1405,13 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 
 	var cr1, cr2, cr;
 	var cb1, cb2, cb;
-	if( oddH ) {
-		if( oddV ) {
-			while( dest < last ) {
+	if (oddH) {
+		if (oddV) {
+			while (dest < last) {
 				cr1 = sCr[src] + sCr[src+width];
 				cb1 = sCb[src] + sCb[src+width];
 				src++;
-				for( x = 0; x < 2; x++ ) {
+				for (x = 0; x < 2; x++) {
 					cr2 = sCr[src] + sCr[src+width];
 					cb2 = sCb[src] + sCb[src+width]; src++;
 					cr = (((cr1 + cr2 + 2) >> 2) & 0xff);
@@ -1463,11 +1440,11 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 			}
 		}
 		else {
-			while( dest < last ) {
+			while (dest < last) {
 				cr1 = sCr[src];
 				cb1 = sCb[src];
 				src++;
-				for( x = 0; x < 2; x++ ) {
+				for (x = 0; x < 2; x++) {
 					cr2 = sCr[src];
 					cb2 = sCb[src++];
 					cr = (((cr1 + cr2 + 1) >> 1) & 0xff);
@@ -1497,9 +1474,9 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 		}
 	}
 	else {
-		if( oddV ) {
-			while( dest < last ) {
-				for( x = 0; x < 2; x++ ) {
+		if (oddV) {
+			while (dest < last) {
+				for (x = 0; x < 2; x++) {
 					cr = (((sCr[src] + sCr[src+width] + 1) >> 1) & 0xff);
 					cb = (((sCb[src] + sCb[src+width] + 1) >> 1) & 0xff); src++;
 
@@ -1520,8 +1497,8 @@ jsmpeg.prototype.copyMacroblock = function(motionH, motionV, sY, sCr, sCb ) {
 			}
 		}
 		else {
-			while( dest < last ) {
-				for( x = 0; x < 2; x++ ) {
+			while (dest < last) {
+				for (x = 0; x < 2; x++) {
 					cr = sCr[src];
 					cb = sCb[src]; src++;
 
@@ -1560,14 +1537,14 @@ jsmpeg.prototype.decodeBlock = function(block) {
 		quantMatrix;
 
 	// Decode DC coefficient of intra-coded blocks
-	if( this.macroblockIntra ) {
+	if (this.macroblockIntra) {
 		var
 			predictor,
 			dctSize;
 
 		// DC prediction
 
-		if( block < 4 ) {
+		if (block < 4) {
 			predictor = this.dcPredictorY;
 			dctSize = this.readCode(DCT_DC_SIZE_LUMINANCE);
 		}
@@ -1577,9 +1554,9 @@ jsmpeg.prototype.decodeBlock = function(block) {
 		}
 
 		// Read DC coeff
-		if( dctSize > 0 ) {
+		if (dctSize > 0) {
 			var differential = this.buffer.getBits(dctSize);
-			if( (differential & (1 << (dctSize - 1))) !== 0 ) {
+			if ((differential & (1 << (dctSize - 1))) !== 0) {
 				this.blockData[0] = predictor + differential;
 			}
 			else {
@@ -1591,10 +1568,10 @@ jsmpeg.prototype.decodeBlock = function(block) {
 		}
 
 		// Save predictor value
-		if( block < 4 ) {
+		if (block < 4) {
 			this.dcPredictorY = this.blockData[0];
 		}
-		else if( block === 4 ) {
+		else if (block === 4) {
 			this.dcPredictorCr = this.blockData[0];
 		}
 		else {
@@ -1613,33 +1590,33 @@ jsmpeg.prototype.decodeBlock = function(block) {
 
 	// Decode AC coefficients (+DC for non-intra)
 	var level = 0;
-	while( true ) {
+	while (true) {
 		var
 			run = 0,
 			coeff = this.readCode(DCT_COEFF);
 
-		if( (coeff === 0x0001) && (n > 0) && (this.buffer.getBits(1) === 0) ) {
+		if ((coeff === 0x0001) && (n > 0) && (this.buffer.getBits(1) === 0)) {
 			// end_of_block
 			break;
 		}
-		if( coeff === 0xffff ) {
+		if (coeff === 0xffff) {
 			// escape
 			run = this.buffer.getBits(6);
 			level = this.buffer.getBits(8);
-			if( level === 0 ) {
+			if (level === 0) {
 				level = this.buffer.getBits(8);
 			}
-			else if( level === 128 ) {
+			else if (level === 128) {
 				level = this.buffer.getBits(8) - 256;
 			}
-			else if( level > 128 ) {
+			else if (level > 128) {
 				level = level - 256;
 			}
 		}
 		else {
 			run = coeff >> 8;
 			level = coeff & 0xff;
-			if( this.buffer.getBits(1) ) {
+			if (this.buffer.getBits(1)) {
 				level = -level;
 			}
 		}
@@ -1650,17 +1627,17 @@ jsmpeg.prototype.decodeBlock = function(block) {
 
 		// Dequantize, oddify, clip
 		level <<= 1;
-		if( !this.macroblockIntra ) {
+		if (!this.macroblockIntra) {
 			level += (level < 0 ? -1 : 1);
 		}
 		level = (level * this.quantizerScale * quantMatrix[dezigZagged]) >> 4;
-		if( (level & 1) === 0 ) {
+		if ((level & 1) === 0) {
 			level -= level > 0 ? 1 : -1;
 		}
-		if( level > 2047 ) {
+		if (level > 2047) {
 			level = 2047;
 		}
-		else if( level < -2048 ) {
+		else if (level < -2048) {
 			level = -2048;
 		}
 
@@ -1674,14 +1651,14 @@ jsmpeg.prototype.decodeBlock = function(block) {
 		destIndex,
 		scan;
 
-	if( block < 4 ) {
+	if (block < 4) {
 		destArray = this.currentY;
 		scan = this.codedWidth - 8;
 		destIndex = (this.mbRow * this.codedWidth + this.mbCol) << 4;
-		if( (block & 1) !== 0 ) {
+		if ((block & 1) !== 0) {
 			destIndex += 8;
 		}
-		if( (block & 2) !== 0 ) {
+		if ((block & 2) !== 0) {
 			destIndex += this.codedWidth << 3;
 		}
 	}
@@ -1691,7 +1668,7 @@ jsmpeg.prototype.decodeBlock = function(block) {
 		destIndex = ((this.mbRow * this.codedWidth) << 2) + (this.mbCol << 3);
 	}
 
-	if( this.macroblockIntra ) {
+	if (this.macroblockIntra) {
 		// Overwrite (no prediction)
 		if (n === 1) {
 			this.copyValueToDestination((this.blockData[0] + 128) >> 8, destArray, destIndex, scan);
@@ -1718,7 +1695,7 @@ jsmpeg.prototype.decodeBlock = function(block) {
 };
 
 jsmpeg.prototype.copyBlockToDestination = function(blockData, destArray, destIndex, scan) {
-	for( var n = 0; n < 64; n += 8, destIndex += scan+8 ) {
+	for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
 		destArray[destIndex+0] = blockData[n+0];
 		destArray[destIndex+1] = blockData[n+1];
 		destArray[destIndex+2] = blockData[n+2];
@@ -1731,7 +1708,7 @@ jsmpeg.prototype.copyBlockToDestination = function(blockData, destArray, destInd
 };
 
 jsmpeg.prototype.addBlockToDestination = function(blockData, destArray, destIndex, scan) {
-	for( var n = 0; n < 64; n += 8, destIndex += scan+8 ) {
+	for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
 		destArray[destIndex+0] += blockData[n+0];
 		destArray[destIndex+1] += blockData[n+1];
 		destArray[destIndex+2] += blockData[n+2];
@@ -1744,7 +1721,7 @@ jsmpeg.prototype.addBlockToDestination = function(blockData, destArray, destInde
 };
 
 jsmpeg.prototype.copyValueToDestination = function(value, destArray, destIndex, scan) {
-	for( var n = 0; n < 64; n += 8, destIndex += scan+8 ) {
+	for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
 		destArray[destIndex+0] = value;
 		destArray[destIndex+1] = value;
 		destArray[destIndex+2] = value;
@@ -1757,7 +1734,7 @@ jsmpeg.prototype.copyValueToDestination = function(value, destArray, destIndex, 
 };
 
 jsmpeg.prototype.addValueToDestination = function(value, destArray, destIndex, scan) {
-	for( var n = 0; n < 64; n += 8, destIndex += scan+8 ) {
+	for (var n = 0; n < 64; n += 8, destIndex += scan+8) {
 		destArray[destIndex+0] += value;
 		destArray[destIndex+1] += value;
 		destArray[destIndex+2] += value;
@@ -1772,8 +1749,8 @@ jsmpeg.prototype.addValueToDestination = function(value, destArray, destIndex, s
 // Clamping version for shitty browsers (IE) that don't support Uint8ClampedArray
 jsmpeg.prototype.copyBlockToDestinationClamp = function(blockData, destArray, destIndex, scan) {
 	var n = 0;
-	for( var i = 0; i < 8; i++ ) {
-		for( var j = 0; j < 8; j++ ) {
+	for (var i = 0; i < 8; i++) {
+		for (var j = 0; j < 8; j++) {
 			var p = blockData[n++];
 			destArray[destIndex++] = p > 255 ? 255 : (p < 0 ? 0 : p);
 		}
@@ -1783,8 +1760,8 @@ jsmpeg.prototype.copyBlockToDestinationClamp = function(blockData, destArray, de
 
 jsmpeg.prototype.addBlockToDestinationClamp = function(blockData, destArray, destIndex, scan) {
 	var n = 0;
-	for( var i = 0; i < 8; i++ ) {
-		for( var j = 0; j < 8; j++ ) {
+	for (var i = 0; i < 8; i++) {
+		for (var j = 0; j < 8; j++) {
 			var p = blockData[n++] + destArray[destIndex];
 			destArray[destIndex++] = p > 255 ? 255 : (p < 0 ? 0 : p);
 		}
@@ -1803,63 +1780,63 @@ jsmpeg.prototype.IDCT = function() {
 		blockData = this.blockData;
 
 	// Transform columns
-	for( i = 0; i < 8; ++i ) {
-		b1 =  blockData[4*8+i];
-		b3 =  blockData[2*8+i] + blockData[6*8+i];
-		b4 =  blockData[5*8+i] - blockData[3*8+i];
+	for (i = 0; i < 8; ++i) {
+		b1 = blockData[4*8+i];
+		b3 = blockData[2*8+i] + blockData[6*8+i];
+		b4 = blockData[5*8+i] - blockData[3*8+i];
 		tmp1 = blockData[1*8+i] + blockData[7*8+i];
 		tmp2 = blockData[3*8+i] + blockData[5*8+i];
 		b6 = blockData[1*8+i] - blockData[7*8+i];
 		b7 = tmp1 + tmp2;
-		m0 =  blockData[0*8+i];
-		x4 =  ((b6*473 - b4*196 + 128) >> 8) - b7;
-		x0 =  x4 - (((tmp1 - tmp2)*362 + 128) >> 8);
-		x1 =  m0 - b1;
-		x2 =  (((blockData[2*8+i] - blockData[6*8+i])*362 + 128) >> 8) - b3;
-		x3 =  m0 + b1;
-		y3 =  x1 + x2;
-		y4 =  x3 + b3;
-		y5 =  x1 - x2;
-		y6 =  x3 - b3;
+		m0 = blockData[0*8+i];
+		x4 = ((b6*473 - b4*196 + 128) >> 8) - b7;
+		x0 = x4 - (((tmp1 - tmp2)*362 + 128) >> 8);
+		x1 = m0 - b1;
+		x2 = (((blockData[2*8+i] - blockData[6*8+i])*362 + 128) >> 8) - b3;
+		x3 = m0 + b1;
+		y3 = x1 + x2;
+		y4 = x3 + b3;
+		y5 = x1 - x2;
+		y6 = x3 - b3;
 		y7 = -x0 - ((b4*473 + b6*196 + 128) >> 8);
-		blockData[0*8+i] =  b7 + y4;
-		blockData[1*8+i] =  x4 + y3;
-		blockData[2*8+i] =  y5 - x0;
-		blockData[3*8+i] =  y6 - y7;
-		blockData[4*8+i] =  y6 + y7;
-		blockData[5*8+i] =  x0 + y5;
-		blockData[6*8+i] =  y3 - x4;
-		blockData[7*8+i] =  y4 - b7;
+		blockData[0*8+i] = b7 + y4;
+		blockData[1*8+i] = x4 + y3;
+		blockData[2*8+i] = y5 - x0;
+		blockData[3*8+i] = y6 - y7;
+		blockData[4*8+i] = y6 + y7;
+		blockData[5*8+i] = x0 + y5;
+		blockData[6*8+i] = y3 - x4;
+		blockData[7*8+i] = y4 - b7;
 	}
 
 	// Transform rows
-	for( i = 0; i < 64; i += 8 ) {
-		b1 =  blockData[4+i];
-		b3 =  blockData[2+i] + blockData[6+i];
-		b4 =  blockData[5+i] - blockData[3+i];
+	for (i = 0; i < 64; i += 8) {
+		b1 = blockData[4+i];
+		b3 = blockData[2+i] + blockData[6+i];
+		b4 = blockData[5+i] - blockData[3+i];
 		tmp1 = blockData[1+i] + blockData[7+i];
 		tmp2 = blockData[3+i] + blockData[5+i];
 		b6 = blockData[1+i] - blockData[7+i];
 		b7 = tmp1 + tmp2;
-		m0 =  blockData[0+i];
-		x4 =  ((b6*473 - b4*196 + 128) >> 8) - b7;
-		x0 =  x4 - (((tmp1 - tmp2)*362 + 128) >> 8);
-		x1 =  m0 - b1;
-		x2 =  (((blockData[2+i] - blockData[6+i])*362 + 128) >> 8) - b3;
-		x3 =  m0 + b1;
-		y3 =  x1 + x2;
-		y4 =  x3 + b3;
-		y5 =  x1 - x2;
-		y6 =  x3 - b3;
+		m0 = blockData[0+i];
+		x4 = ((b6*473 - b4*196 + 128) >> 8) - b7;
+		x0 = x4 - (((tmp1 - tmp2)*362 + 128) >> 8);
+		x1 = m0 - b1;
+		x2 = (((blockData[2+i] - blockData[6+i])*362 + 128) >> 8) - b3;
+		x3 = m0 + b1;
+		y3 = x1 + x2;
+		y4 = x3 + b3;
+		y5 = x1 - x2;
+		y6 = x3 - b3;
 		y7 = -x0 - ((b4*473 + b6*196 + 128) >> 8);
-		blockData[0+i] =  (b7 + y4 + 128) >> 8;
-		blockData[1+i] =  (x4 + y3 + 128) >> 8;
-		blockData[2+i] =  (y5 - x0 + 128) >> 8;
-		blockData[3+i] =  (y6 - y7 + 128) >> 8;
-		blockData[4+i] =  (y6 + y7 + 128) >> 8;
-		blockData[5+i] =  (x0 + y5 + 128) >> 8;
-		blockData[6+i] =  (y3 - x4 + 128) >> 8;
-		blockData[7+i] =  (y4 - b7 + 128) >> 8;
+		blockData[0+i] = (b7 + y4 + 128) >> 8;
+		blockData[1+i] = (x4 + y3 + 128) >> 8;
+		blockData[2+i] = (y5 - x0 + 128) >> 8;
+		blockData[3+i] = (y6 - y7 + 128) >> 8;
+		blockData[4+i] = (y6 + y7 + 128) >> 8;
+		blockData[5+i] = (x0 + y5 + 128) >> 8;
+		blockData[6+i] = (y3 - x4 + 128) >> 8;
+		blockData[7+i] = (y4 - b7 + 128) >> 8;
 	}
 };
 
@@ -1872,7 +1849,7 @@ var
 	DECODE_SKIP_OUTPUT = 1,
 	PICTURE_RATE = [
 		0.000, 23.976, 24.000, 25.000, 29.970, 30.000, 50.000, 59.940,
-		60.000,  0.000,  0.000,  0.000,  0.000,  0.000,  0.000,  0.000
+		60.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000
 	],
 	ZIG_ZAG = new Uint8Array([
 		 0,  1,  8, 16,  9,  2,  3, 10,
@@ -2578,7 +2555,6 @@ var
 
 		'void main() {',
 			'float c = ceil(loaded-(1.0-texCoord.y));',
-			//'float c = ceil(loaded-(1.0-texCoord.y) +sin((texCoord.x+loaded)*16.0)*0.01);', // Fancy wave anim
 			'gl_FragColor = vec4(c,c,c,1);',
 		'}'
 	].join('\n'),
@@ -2615,8 +2591,8 @@ var BitReader = function(arrayBuffer) {
 BitReader.NOT_FOUND = -1;
 
 BitReader.prototype.findNextMPEGStartCode = function() {
-	for( var i = (this.index+7 >> 3); i < this.writePos; i++ ) {
-		if(
+	for (var i = (this.index+7 >> 3); i < this.writePos; i++) {
+		if (
 			this.bytes[i] === 0x00 &&
 			this.bytes[i+1] === 0x00 &&
 			this.bytes[i+2] === 0x01
@@ -2645,7 +2621,7 @@ BitReader.prototype.nextBits = function(count) {
 		byteOffset = this.index >> 3,
 		room = (8 - this.index % 8);
 
-	if( room >= count ) {
+	if (room >= count) {
 		return (this.bytes[byteOffset] >> (room - count)) & (0xff >> (8-count));
 	}
 
@@ -2654,7 +2630,7 @@ BitReader.prototype.nextBits = function(count) {
 		end = (this.index + count -1) >> 3,
 		value = this.bytes[byteOffset] & (0xff >> (8-room)); // Fill out first byte
 
-	for( byteOffset++; byteOffset < end; byteOffset++ ) {
+	for (byteOffset++; byteOffset < end; byteOffset++) {
 		value <<= 8; // Shift and
 		value |= this.bytes[byteOffset]; // Put next byte
 	}
