@@ -928,7 +928,8 @@ jsmpeg.prototype.initWebGL = function() {
 
 	// attempt to get a webgl context
 	try {
-		gl = this.gl = this.canvas.getContext('webgl') || this.canvas.getContext('experimental-webgl');
+		var options = { preserveDrawingBuffer: true };
+		gl = this.gl = this.canvas.getContext('webgl', options) || this.canvas.getContext('experimental-webgl', options);
 	} catch (e) {
 		return false;
 	}
