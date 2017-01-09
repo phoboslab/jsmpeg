@@ -9,6 +9,7 @@ var jsmpeg = window.jsmpeg = function(url, opts) {
 	this.loop = !!opts.loop;
 	this.seekable = !!opts.seekable;
 	this.externalLoadCallback = opts.onload || null;
+	this.externalPlaybackReadyCallback = opts.onplaybackready || null;
 	this.externalDecodeCallback = opts.ondecodeframe || null;
 	this.externalFinishedCallback = opts.onfinished || null;
 
@@ -481,6 +482,7 @@ jsmpeg.prototype.loadNextChunk = function() {
 };
 
 jsmpeg.prototype.canPlayThrough = false;
+jsmpeg.prototype.playbackReadyCallbackFired = false;
 
 jsmpeg.prototype.progressiveLoadCallback = function(data) {
 	this.chunkIsLoading = false;
@@ -515,6 +517,11 @@ jsmpeg.prototype.progressiveLoadCallback = function(data) {
 		for (frames = 0; this.findStartCode(START_PICTURE) !== BitReader.NOT_FOUND; frames++) {}
 		this.buffer.index = currentIndex;
 		bytesPerSecondPlayed = bytes.length/(frames / this.pictureRate);
+
+		if (this.externalPlaybackReadyCallback && ! this.playbackReadyCallbackFired) {
+			this.playbackReadyCallbackFired = true;
+			this.externalPlaybackReadyCallback( this );
+		}
 	}
 	
 	
