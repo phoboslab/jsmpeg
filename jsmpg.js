@@ -8,6 +8,7 @@ var jsmpeg = window.jsmpeg = function(url, opts) {
 	this.wantsToPlay = this.autoplay;
 	this.loop = !!opts.loop;
 	this.seekable = !!opts.seekable;
+	this.preserveDrawingBuffer = !!opts.preserveDrawingBuffer;
 	this.externalLoadCallback = opts.onload || null;
 	this.externalDecodeCallback = opts.ondecodeframe || null;
 	this.externalFinishedCallback = opts.onfinished || null;
@@ -1008,7 +1009,8 @@ jsmpeg.prototype.initWebGL = function() {
 
 	// attempt to get a webgl context
 	try {
-		gl = this.gl = this.canvas.getContext('webgl') || this.canvas.getContext('experimental-webgl');
+		var options = { preserveDrawingBuffer: this.preserveDrawingBuffer };
+		gl = this.gl = this.canvas.getContext('webgl', options) || this.canvas.getContext('experimental-webgl', options);
 	} catch (e) {
 		return false;
 	}
