@@ -28,6 +28,7 @@ The `options` argument to the `jsmpeg()` supports the following properties:
 - `seekable` whether a seek-index is build during load time; neccessary for `seekToFrame` and `seekToTime` methods
 - `preserveDrawingBuffer` whether the WebGL context is created with preserveDrawingBuffer - necessary for "screenshots" via `canvas.toDataURL()`; default `false`.
 - `onload` a function that's called once, after the .mpg file has been completely loaded
+- `onplaybackready` a function for the progressive option which is called once when the first chunk is loaded and playback is ready
 - `ondecodeframe` a function that's called after every frame that's decoded and rendered to the canvas
 - `onfinished` a function that's called when playback ends
 
