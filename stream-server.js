@@ -59,6 +59,15 @@ var streamServer = require('http').createServer( function(request, response) {
 			'Stream Connected: ' + request.socket.remoteAddress + 
 			':' + request.socket.remotePort + ' size: ' + width + 'x' + height
 		);
+
+		request.on('error', function(){
+ 			response.end();
+		});
+
+		request.on('end', function(){
+ 			response.end();
+		});
+
 		request.on('data', function(data){
 			socketServer.broadcast(data, {binary:true});
 		});
