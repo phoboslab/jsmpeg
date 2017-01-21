@@ -10,6 +10,7 @@ var jsmpeg = window.jsmpeg = function(url, opts) {
 	this.seekable = !!opts.seekable;
 	this.preserveDrawingBuffer = !!opts.preserveDrawingBuffer;
 	this.externalLoadCallback = opts.onload || null;
+	this.externalPlayfinishedCallback = opts.onfinished || null;
 	this.externalDecodeCallback = opts.ondecodeframe || null;
 	this.externalFinishedCallback = opts.onfinished || null;
 
@@ -665,6 +666,7 @@ jsmpeg.prototype.nextFrame = function() {
 		}
 		else if (code === BitReader.NOT_FOUND) {
 			this.stop(); // Jump back to the beginning
+            this.externalPlayfinishedCallback(this);
 
 			if (this.externalFinishedCallback) {
 				this.externalFinishedCallback(this);
