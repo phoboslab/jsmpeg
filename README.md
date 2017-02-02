@@ -224,7 +224,7 @@ To capture webcam input on Windows or macOS using ffmpeg, see the [ffmpeg Captur
 
 This library was built in a fairly modular fashion while keeping overhead at a minimum. Implementing new Demuxers, Decoders, Outputs (Renderers, Audio Devices) or Sources should be possible without changing any other parts. However, you would still need to subclass the `JSMpeg.Player` in order to use any new modules.
 
-Have a look a the [jsmpeg.js source](https://github.com/phoboslab/jsmpeg/blob/master/src/jsmpg.js) for an overview of how the modules interconnect and what APIs they should provide. I also wrote a blog post about some of JSMpeg's internals: [Decode It Like It's 1999](http://phoboslab.org/log/2017/01/decode-it-like-it-s-1999).
+Have a look a the [jsmpeg.js source](https://github.com/phoboslab/jsmpeg/blob/master/src/jsmpeg.js) for an overview of how the modules interconnect and what APIs they should provide. I also wrote a blog post about some of JSMpeg's internals: [Decode It Like It's 1999](http://phoboslab.org/log/2017/02/decode-it-like-its-1999).
 
 Using parts of the library without creating a full player should also be fairly straightforward. E.g. you can create a stand-alone instance of the `JSMpeg.Decoder.MPEG1Video` class, `.connect()` a renderer, `.write()` some data to it and `.decode()` a frame, without touching JSMpeg's other parts.
 
