@@ -188,17 +188,19 @@ WebGLRenderer.SHADER = {
 		'uniform sampler2D textureCr;',
 		'varying vec2 texCoord;',
 
+		'mat4 rec601 = mat4(',
+			'1.16438,  0.00000,  1.59603, -0.87079,',
+			'1.16438, -0.39176, -0.81297,  0.52959,',
+			'1.16438,  2.01723,  0.00000, -1.08139,',
+			'0, 0, 0, 1',
+		');',
+
 		'void main() {',
 			'float y = texture2D(textureY, texCoord).r;',
-			'float cb = texture2D(textureCb, texCoord).r - 0.5;',
-			'float cr = texture2D(textureCr, texCoord).r - 0.5;',
+			'float cb = texture2D(textureCb, texCoord).r;',
+			'float cr = texture2D(textureCr, texCoord).r;',
 
-			'gl_FragColor = vec4(',
-				'y + 1.4 * cb,',
-				'y + -0.343 * cr - 0.711 * cb,',
-				'y + 1.765 * cr,',
-				'1.0',
-			');',
+			'gl_FragColor = vec4(y, cr, cb, 1.0) * rec601;',
 		'}'
 	].join('\n'),
 
