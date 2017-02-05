@@ -81,6 +81,17 @@ var JSMpeg = {
 		for (var i = 0; i < elements.length; i++) {
 			new JSMpeg.VideoElement(elements[i]);
 		}
+	},
+
+	Fill: function(array, value) {
+		if (array.fill) {
+			array.fill(value);
+		}
+		else {
+			for (var i = 0; i < array.length; i++) {
+				array[i] = value;
+			}
+		}
 	}
 };
 

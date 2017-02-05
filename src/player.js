@@ -58,6 +58,8 @@ var Player = function(url, options) {
 	if (this.autoplay) {
 		this.play();
 	}
+
+	window.player = this;
 };
 
 Player.prototype.showHide = function(ev) {

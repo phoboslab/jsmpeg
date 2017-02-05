@@ -833,7 +833,7 @@ MPEG1.prototype.decodeBlock = function(block) {
 		else {
 			MPEG1.IDCT(this.blockData);
 			MPEG1.CopyBlockToDestination(this.blockData, destArray, destIndex, scan);
-			this.blockData.fill(0);
+			JSMpeg.Fill(this.blockData, 0);
 		}
 	}
 	else {
@@ -845,7 +845,7 @@ MPEG1.prototype.decodeBlock = function(block) {
 		else {
 			MPEG1.IDCT(this.blockData);
 			MPEG1.AddBlockToDestination(this.blockData, destArray, destIndex, scan);
-			this.blockData.fill(0);
+			JSMpeg.Fill(this.blockData, 0);
 		}
 	}
 

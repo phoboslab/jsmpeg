@@ -237,7 +237,7 @@ MP2.prototype.decodeFrame = function(left, right) {
 					MP2.MatrixTransform(this.sample[ch], p, this.V, this.VPos);
 
 					// Build U, windowing, calculate output
-					this.U.fill(0);
+					JSMpeg.Fill(this.U, 0);
 
 					var dIndex = 512 - (this.VPos >> 1);
 					var vIndex = (this.VPos % 128) >> 1;
