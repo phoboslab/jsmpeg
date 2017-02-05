@@ -17,7 +17,7 @@ CanvasRenderer.prototype.resize = function(width, height) {
 	this.canvas.height = this.height;
 
 	this.imageData = this.context.getImageData(0, 0, this.width, this.height);
-	this.imageData.data.fill(255);
+	JSMpeg.Fill(this.imageData.data, 255);
 };
 
 CanvasRenderer.prototype.renderProgress = function(progress) {
