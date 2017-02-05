@@ -1,6 +1,6 @@
 # JSMpeg – MPEG1 Video & MP2 Audio Decoder in JavaScript
 
-JSMpeg is a Video Player written in JavaScript. It consists of an MPEG-TS demuxer, MPEG1 video & MP2 audio decoders, WebGL & Canvas2D renderers and WebAudio sound output. JSMpeg can load static videos via Ajax and allows low latency streaming (~75ms) via WebSocktes.
+JSMpeg is a Video Player written in JavaScript. It consists of an MPEG-TS demuxer, MPEG1 video & MP2 audio decoders, WebGL & Canvas2D renderers and WebAudio sound output. JSMpeg can load static videos via Ajax and allows low latency streaming (~50ms) via WebSocktes.
 
 JSMpeg can decode 720p Video at 30fps on an iPhone 5S, works in any modern browser (Chrome, Firefox, Safari, Edge) and comes in at just 20kb gzipped.
 
@@ -43,7 +43,7 @@ The `options` argument supports the following properties:
 - `disableGl` - whether to disable WebGL and always use the Canvas2D renderer. Default `false`.
 - `preserveDrawingBuffer` – whether the WebGL context is created with `preserveDrawingBuffer` - necessary for "screenshots" via `canvas.toDataURL()`. Default `false`.
 - `progressive` - whether to load data in chunks (static files only). When enabled, playback can begin before the whole source has been completely loaded. Default `true`.
-- `throttled` - when using `progressive`, whether to defer loading chunks when they're not needed for playback yet. Default `true`
+- `throttled` - when using `progressive`, whether to defer loading chunks when they're not needed for playback yet. Default `true`.
 - `chunkSize` - when using `progressive`, the chunk size in bytes to load at a time. Default `1024*1024` (1mb).
 - `decodeFirstFrame` - whether to decode and display the first frame of the video. Useful to set up the Canvas size and use the frame as the "poster" image. This has no effect when using `autoplay` or streaming sources. Default `true`.
 - `maxAudioLag` – when streaming, the maximum enqueued audio length in seconds.
@@ -112,15 +112,15 @@ A separate, buffered streaming mode, where JSMpeg pre-loads a few seconds of dat
 
 The internal buffers for video and audio are fairly small (512kb and 128kb respectively) and JSMpeg will discard old (even unplayed) data to make room for newly arriving data without much fuzz. This could introduce decoding artifacts when there's a network congestion, but ensures that latency is kept at a minimum. If necessary You can increase the `videoBufferSize` and `audioBufferSize` through the options.
 
-JSMpeg comes with a tiny WebSocket "relay", written in Node.js. This server accepts an MPEG-TS source over HTTP and serves it via WebSocket to all connecting Browsers. The incoming HTTP stream can be generated using [ffmpeg](https://ffmpeg.org/), gstreamer or by other means.
+JSMpeg comes with a tiny WebSocket "relay", written in Node.js. This server accepts an MPEG-TS source over HTTP and serves it via WebSocket to all connecting Browsers. The incoming HTTP stream can be generated using [ffmpeg](https://ffmpeg.org/), [gstreamer](https://gstreamer.freedesktop.org/) or by other means.
 
 The split between the source and the WebSocket relay is necessary, because ffmpeg doesn't speak the WebSocket protocol. However, this split also allows you to install the WebSocket relay on a public server and share your stream on the Internet (typically NAT in your router prevents the public Internet from connecting _into_ your local network).
 
 In short, it works like this:
 
-1) run the websocket-relay.js
-2) run ffmpeg, send output to the relay's HTTP port
-3) connect JSMpeg in the browser to the relay's Websocket port
+1. run the websocket-relay.js
+2. run ffmpeg, send output to the relay's HTTP port
+3. connect JSMpeg in the browser to the relay's Websocket port
 
 
 ## Example Setup for Streaming: Raspberry Pi Live Webcam
@@ -158,7 +158,7 @@ git clone https://github.com/phoboslab/jsmpeg.git
 9) Open the streaming website in your browser. The `http-server` will tell you the ip (usually `192.168.[...]`) and port (usually `8080`) where it's running on:
 `http://192.168.[...]:8080/view-stream.html`
 
-10) In a third terminal window, start ffmpeg to capture the webcam video and send it to the Websocket relay. Provide the password and port (from step 8) in the destination URL:
+10) In a third terminal window, start ffmpeg to capture the webcam video and send it to the Websocket relay. Provide the password and port (from step 7) in the destination URL:
 ```
 ffmpeg \
 	-f v4l2 \
@@ -182,7 +182,7 @@ ffmpeg \
 	-f v4l2 \
 		-framerate 25 -video_size 640x480 -i /dev/video0 \
 	-f alsa \
-		-ar 44100 -c 2 -i -i hw:0 \
+		-ar 44100 -c 2 -i hw:0 \
 	-f mpegts \
 		-codec:v mpeg1video -s 640x480 -b:v 1000k -bf 0 \
 		-codec:a mp2 -b:a 128k \
@@ -190,7 +190,7 @@ ffmpeg \
 	http://localhost:8081/supersecret
 ```
 
-Note the `muxdelay` argument. This should reduce lag, but doesn't always work when streaming video and audio - see remarks below.:
+Note the `muxdelay` argument. This should reduce lag, but doesn't always work when streaming video and audio - see remarks below.
 
 
 ## Some remarks about ffmpeg muxing and latency
@@ -209,7 +209,7 @@ ffmpeg \
 # In a second terminal
 ffmpeg \
 	-f alsa \
-		-ar 44100 -c 2 -i -i hw:0 \
+		-ar 44100 -c 2 -i hw:0 \
 	-f mpegts \
 		-codec:a mp2 -b:a 128k \
 		-muxdelay 0.001 \
