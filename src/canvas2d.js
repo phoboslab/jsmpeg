@@ -1,6 +1,6 @@
-JSMpeg.Renderer.Canvas2D = (function(){ "use strict";
+import {Fill} from './jsmpeg';
 
-var CanvasRenderer = function(options) {
+export var CanvasRenderer = function(options) {
 	this.canvas = options.canvas || document.createElement('canvas');
 	this.width = this.canvas.width;
 	this.height = this.canvas.height;
@@ -17,7 +17,7 @@ CanvasRenderer.prototype.resize = function(width, height) {
 	this.canvas.height = this.height;
 
 	this.imageData = this.context.getImageData(0, 0, this.width, this.height);
-	JSMpeg.Fill(this.imageData.data, 255);
+	Fill(this.imageData.data, 255);
 };
 
 CanvasRenderer.prototype.renderProgress = function(progress) {
@@ -108,8 +108,4 @@ CanvasRenderer.prototype.YCbCrToRGBA = function(y, cb, cr, rgba) {
 	}
 };
 
-return CanvasRenderer;
-
-})();
-
-
+export default CanvasRenderer;
