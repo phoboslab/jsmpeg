@@ -1,6 +1,6 @@
-JSMpeg.Demuxer.TS = (function(){ "use strict";
+import BitBuffer from './buffer';
 
-var TS = function(options) {
+export var TS = function(options) {
 	this.bits = null;
 	this.leftoverBytes = null;
 
@@ -25,11 +25,11 @@ TS.prototype.connect = function(streamId, destination) {
 TS.prototype.write = function(buffer) {
 	if (this.leftoverBytes) {
 		var totalLength = buffer.byteLength + this.leftoverBytes.byteLength;
-		this.bits = new JSMpeg.BitBuffer(totalLength);
+		this.bits = new BitBuffer(totalLength);
 		this.bits.write([this.leftoverBytes, buffer]);
 	}
 	else {
-		this.bits = new JSMpeg.BitBuffer(buffer);
+		this.bits = new BitBuffer(buffer);
 	}
 
 	while (this.bits.has(188 << 3)) {
@@ -183,8 +183,4 @@ TS.STREAM = {
 	DIRECTORY: 0xFF
 };
 
-return TS;
-
-})();
-
-
+export default TS;

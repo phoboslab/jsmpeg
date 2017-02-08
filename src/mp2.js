@@ -1,17 +1,19 @@
-JSMpeg.Decoder.MP2Audio = (function(){ "use strict";
-
 // Based on kjmp2 by Martin J. Fiedler
 // http://keyj.emphy.de/kjmp2/
 
-var MP2 = function(options) {
-	JSMpeg.Decoder.Base.call(this, options);
+import BaseDecoder from './decoder';
+import BitBuffer from './buffer';
+import {Fill} from './jsmpeg';
+
+export var MP2 = function(options) {
+	BaseDecoder.call(this, options);
 
 	var bufferSize = options.audioBufferSize || 128*1024;
 	var bufferMode = options.streaming
-		? JSMpeg.BitBuffer.MODE.EVICT
-		: JSMpeg.BitBuffer.MODE.EXPAND;
+		? BitBuffer.MODE.EVICT
+		: BitBuffer.MODE.EXPAND;
 
-	this.bits = new JSMpeg.BitBuffer(bufferSize, bufferMode);
+	this.bits = new BitBuffer(bufferSize, bufferMode);
 
 	this.left = new Float32Array(1152);
 	this.right = new Float32Array(1152);
@@ -37,7 +39,7 @@ var MP2 = function(options) {
 	}
 };
 
-MP2.prototype = Object.create(JSMpeg.Decoder.Base.prototype);
+MP2.prototype = Object.create(BaseDecoder.prototype);
 MP2.prototype.constructor = MP2;
 
 MP2.prototype.decode = function() {
@@ -237,7 +239,7 @@ MP2.prototype.decodeFrame = function(left, right) {
 					MP2.MatrixTransform(this.sample[ch], p, this.V, this.VPos);
 
 					// Build U, windowing, calculate output
-					JSMpeg.Fill(this.U, 0);
+					Fill(this.U, 0);
 
 					var dIndex = 512 - (this.VPos >> 1);
 					var vIndex = (this.VPos % 128) >> 1;
@@ -676,7 +678,4 @@ MP2.QUANT_TAB = [
 	{levels: 65535, group: 0, bits: 16}   // 17
 ];
 
-return MP2;
-
-})();
-
+export default MP2;
