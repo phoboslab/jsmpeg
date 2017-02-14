@@ -3,7 +3,11 @@ JSMpeg.Player = (function(){ "use strict";
 var Player = function(url, options) {
 	this.options = options || {};
 
-	if (url.match(/^wss?:\/\//)) {
+	if (options.source) {
+		this.source = new options.source(url, options);
+		options.streaming = !!this.source.streaming;
+	}
+	else if (url.match(/^wss?:\/\//)) {
 		this.source = new JSMpeg.Source.WebSocket(url, options);
 		options.streaming = true;
 	}
