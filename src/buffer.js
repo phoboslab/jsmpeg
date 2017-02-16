@@ -184,6 +184,10 @@ BitBuffer.prototype.has = function(count) {
 	return ((this.byteLength << 3) - this.index) >= count;
 };
 
+BitBuffer.prototype.alignByte = function() {
+	this.index = (this.index >> 3) <<3;
+};
+
 BitBuffer.MODE = {
 	EVICT: 1,
 	EXPAND: 2

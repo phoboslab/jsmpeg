@@ -28,6 +28,8 @@ WSSource.prototype.start = function() {
 	this.shouldAttemptReconnect = !!this.reconnectInterval;
 	this.progress = 0;
 	this.established = false;
+	this.destination.synced = false;
+
 
 	this.socket = new WebSocket(this.url);
 	this.socket.binaryType = 'arraybuffer';
