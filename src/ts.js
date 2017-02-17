@@ -10,6 +10,7 @@ var TS = function(options) {
 	this.pesPacketInfo = {};
 	this.startTime = 0;
 	this.currentTime = 0;
+	this.synced = false;
 };
 
 TS.prototype.connect = function(streamId, destination) {
@@ -32,7 +33,13 @@ TS.prototype.write = function(buffer) {
 		this.bits = new JSMpeg.BitBuffer(buffer);
 	}
 
-	while (this.bits.has(188 << 3)) {
+    if(!this.synced) {
+	    if(this.syncPacket()) {
+	        this.synced = true;
+        }
+    }
+
+    while (this.synced && this.bits.has(188 << 3)) {
 		this.parsePacket();
 	}
 
@@ -40,13 +47,36 @@ TS.prototype.write = function(buffer) {
 	this.leftoverBytes = leftoverCount > 0
 		? this.bits.bytes.subarray(this.bits.index >> 3)
 		: null;
-};
+}
+
+TS.prototype.syncPacket = function() {
+	var MINTOK = 5; //how many tokens to check for
+	this.bits.alignByte();
+	checkHasRemaining: 	//need at least ((MINTOK-1)*188))+1 bytes to find MINTOK tokens
+		while (this.bits.has((MINTOK-1) * (188 << 3) + (1 << 3))) {
+			for (var i = 0; i < MINTOK; i++) {
+				if (this.bits.read(8) !== 0x47) {
+					// search for initial token (i==0) OR
+					// we found a non-token -> rewind to position after initial token.
+					this.bits.rewind((i*188) << 3); // nop for i==0
+					break checkHasRemaining;
+				}
+				this.bits.skip(187 << 3);
+			}
+			//found MINTOK tokens, rewind (MINTOK*188)+1 bytes
+			this.bits.rewind(MINTOK * (188 << 3) + ( 1 << 3));
+			return true; //found sync token
+		}
+	return false; //no sync in available data
+}
 
 TS.prototype.parsePacket = function() {
 	var end = (this.bits.index >> 3) + 188;
-
+	
 	if (this.bits.read(8) !== 0x47) {
-		throw("Sync Token not found");
+        console.log('lost sync');
+        this.synced = false;
+        return;
 	}
 
 	var transportError = this.bits.read(1),
