@@ -53,7 +53,7 @@ TS.prototype.syncPacket = function() {
 	var MINTOK = 5; //how many tokens to check for
 	this.bits.alignByte();
 	checkHasRemaining: 	//need at least ((MINTOK-1)*188))+1 bytes to find MINTOK tokens
-		while (this.bits.has((MINTOK-1) * (188 << 3) + (188 << 3))) {
+		while (this.bits.has((MINTOK-1) * (188 << 3) + (1 << 3))) {
 			for (var i = 0; i < MINTOK; i++) {
 				if (this.bits.read(8) !== 0x47) {
 					// search for initial token (i==0) OR
