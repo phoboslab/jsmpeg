@@ -106,7 +106,7 @@ TS.prototype.parsePacket = function() {
 
 					// Can't use bit shifts here; we need 33 bits of precision,
 					// so we're using JavaScript's double number type. Also
-					// devide by the 90khz clock to get the pts in seconds
+					// divide by the 90khz clock to get the pts in seconds.
 					pts = (p32_30 * 1073741824 + p29_15 * 32768 + p14_0)/90000;
 					
 					this.currentTime = pts;
@@ -164,7 +164,7 @@ TS.prototype.resync = function() {
 	for (var i = 0; i < 187; i++) {
 		if (this.bits.bytes[byteIndex + i] === 0x47) {
 
-			// Look for 5 more sync tokens, each 188 bytes appart
+			// Look for 4 more sync tokens, each 188 bytes appart
 			var foundSync = true;
 			for (var j = 1; j < 5; j++) {
 				if (this.bits.bytes[byteIndex + i + 188 * j] !== 0x47) {
