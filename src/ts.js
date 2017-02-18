@@ -32,9 +32,7 @@ TS.prototype.write = function(buffer) {
 		this.bits = new JSMpeg.BitBuffer(buffer);
 	}
 
-	while (this.bits.has(188 << 3)) {
-		this.parsePacket();
-	}
+	while (this.bits.has(188 << 3) && this.parsePacket()) {}
 
 	var leftoverCount = this.bits.byteLength - (this.bits.index >> 3);
 	this.leftoverBytes = leftoverCount > 0
@@ -43,12 +41,15 @@ TS.prototype.write = function(buffer) {
 };
 
 TS.prototype.parsePacket = function() {
-	var end = (this.bits.index >> 3) + 188;
-
+	// Check if we're in sync with packet boundaries; attempt to resync if not.
 	if (this.bits.read(8) !== 0x47) {
-		throw("Sync Token not found");
+		if (!this.resync()) {
+			// Couldn't resync; maybe next time...
+			return false;
+		}
 	}
 
+	var end = (this.bits.index >> 3) + 187;
 	var transportError = this.bits.read(1),
 		payloadStart = this.bits.read(1),
 		transportPriority = this.bits.read(1),
@@ -148,6 +149,43 @@ TS.prototype.parsePacket = function() {
 	}
 
 	this.bits.index = end << 3;
+	return true;
+};
+
+TS.prototype.resync = function() {
+	// Check if we have enough data to attempt a resync. We need 5 full packets.
+	if (!this.bits.has((188 * 6) << 3)) {
+		return false;
+	}
+
+	var byteIndex = this.bits.index >> 3;
+
+	// Look for the first sync token in the first 187 bytes
+	for (var i = 0; i < 187; i++) {
+		if (this.bits.bytes[byteIndex + i] === 0x47) {
+
+			// Look for 5 more sync tokens, each 188 bytes appart
+			var foundSync = true;
+			for (var j = 1; j < 5; j++) {
+				if (this.bits.bytes[byteIndex + i + 188 * j] !== 0x47) {
+					foundSync = false;
+					break;
+				}
+			}
+
+			if (foundSync) {
+				this.bits.index = (byteIndex + i + 1) << 3;
+				return true;
+			}
+		}
+	}
+
+	// In theory, we shouldn't arrive here. If we do, we had enough data but
+	// still didn't find sync - this can only happen if we were fed garbage
+	// data. Check your source!
+	console.warn('JSMpeg: Possible garbage data. Skipping.');
+	this.bits.skip(187 << 3);
+	return false;
 };
 
 TS.prototype.packetStart = function(pi, pts, payloadLength) {
