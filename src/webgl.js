@@ -26,9 +26,9 @@ var WebGLRenderer = function(options) {
 	var vertexAttr = null;
 
 	// Init buffers
-	var vertexBuffer = gl.createBuffer();
+	this.vertexBuffer = gl.createBuffer();
 	var vertexCoords = new Float32Array([0, 0, 0, 1, 1, 0, 1, 1]);
-	gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+	gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
 	gl.bufferData(gl.ARRAY_BUFFER, vertexCoords, gl.STATIC_DRAW);
 
 	// Setup the main YCrCbToRGBA shader
@@ -55,6 +55,19 @@ var WebGLRenderer = function(options) {
 	gl.vertexAttribPointer(vertexAttr, 2, gl.FLOAT, false, 0, 0);
 
 	this.shouldCreateUnclampedViews = !this.allowsClampedTextureData();
+};
+
+WebGLRenderer.prototype.destroy = function() {
+	var gl = this.gl;
+	
+	gl.deleteTexture(this.textureY);
+	gl.deleteTexture(this.textureCb);
+	gl.deleteTexture(this.textureCr);
+
+	gl.deleteProgram(this.program);
+	gl.deleteProgram(this.loadingProgram);
+
+	gl.deleteBuffer(this.vertexBuffer);
 };
 
 WebGLRenderer.prototype.resize = function(width, height) {
@@ -121,8 +134,12 @@ WebGLRenderer.prototype.allowsClampedTextureData = function() {
 
 WebGLRenderer.prototype.renderProgress = function(progress) {
 	var gl = this.gl;
+
+	gl.useProgram(this.loadingProgram);
+
 	var loc = gl.getUniformLocation(this.loadingProgram, 'progress');
 	gl.uniform1f(loc, progress);
+	
 	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 };
 
@@ -144,7 +161,9 @@ WebGLRenderer.prototype.render = function(y, cb, cr) {
 		y = new Uint8Array(y.buffer),
 		cb = new Uint8Array(cb.buffer),
 		cr = new Uint8Array(cr.buffer);	
-	}	
+	}
+
+	gl.useProgram(this.program);
 
 	this.updateTexture(gl.TEXTURE0, this.textureY, w, h, y);
 	this.updateTexture(gl.TEXTURE1, this.textureCb, w2, h2, cb);

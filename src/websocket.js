@@ -23,7 +23,8 @@ WSSource.prototype.connect = function(destination) {
 	this.destination = destination;
 };
 
-WSSource.prototype.abort = function() {
+WSSource.prototype.destroy = function() {
+	clearTimeout(this.reconnectTimeoutId);
 	this.shouldAttemptReconnect = false;
 	this.socket.close();
 };

@@ -110,6 +110,13 @@ Player.prototype.stop = function(ev) {
 	}
 };
 
+Player.prototype.destroy = function() {
+	this.pause();
+	this.source.destroy();
+	this.renderer.destroy();
+	this.audioOut.destroy();
+};
+
 Player.prototype.seek = function(time) {
 	var startOffset = this.audio && this.audio.canPlay
 		? this.audio.startTime

@@ -16,6 +16,7 @@ var AjaxProgressiveSource = function(url, options) {
 	this.isLoading = false;
 	this.loadStartTime = 0;
 	this.throttled = options.throttled !== false;
+	this.aborted = false;
 };
 
 AjaxProgressiveSource.prototype.connect = function(destination) {
@@ -52,15 +53,16 @@ AjaxProgressiveSource.prototype.resume = function(secondsHeadroom) {
 	}
 };
 
-AjaxProgressiveSource.prototype.abort = function() {
+AjaxProgressiveSource.prototype.destroy = function() {
 	this.request.abort();
+	this.aborted = true;
 };
 
 AjaxProgressiveSource.prototype.loadNextChunk = function() {
 	var start = this.loadedSize,
 		end = Math.min(this.loadedSize + this.chunkSize-1, this.fileSize-1);
 	
-	if (start >= this.fileSize) {
+	if (start >= this.fileSize || this.aborted) {
 		this.completed = true;
 		return;
 	}

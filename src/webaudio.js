@@ -6,9 +6,13 @@ var WebAudioOut = function(options) {
 		new (window.AudioContext || window.webkitAudioContext)();
 
 	this.gain = this.context.createGain();
-	this.gain.connect(this.context.destination);
 	this.destination = this.gain;
 
+	// Keep track of the number of connections to this AudioContext, so we
+	// can safely close() it when we're the only one connected to it.
+	this.gain.connect(this.context.destination);
+	this.context._connections = (this.context._connections || 0) + 1;
+	
 	this.startTime = 0;
 	this.buffer = null;
 	this.wallclockStartTime = 0;
@@ -18,6 +22,16 @@ var WebAudioOut = function(options) {
 	this.unlocked = !WebAudioOut.NeedsUnlocking();
 	
 	Object.defineProperty(this, 'enqueuedTime', {get: this.getEnqueuedTime});
+};
+
+WebAudioOut.prototype.destroy = function() {
+	this.gain.disconnect();
+	this.context._connections--;
+
+	if (this.context._connections === 0) {
+		this.context.close();
+		WebAudioOut.CachedContext = null;
+	}
 };
 
 WebAudioOut.prototype.play = function(sampleRate, left, right) {

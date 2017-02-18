@@ -36,7 +36,7 @@ AjaxSource.prototype.resume = function(secondsHeadroom) {
 	// Nothing to do here
 };
 
-AjaxSource.prototype.abort = function() {
+AjaxSource.prototype.destroy = function() {
 	this.request.abort();
 };
 
