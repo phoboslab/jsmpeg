@@ -72,6 +72,7 @@ A `JSMpeg.Player` instance supports the following methods and properties:
 - `.play()` – start playback
 - `.pause()` – pause playback
 - `.stop()` – stop playback and seek to the beginning
+- `.destroy()` – stops playback, disconnects the source and cleans up WebGL and WebAudio state. The player can not be used afterwards.
 - `.volume` – get or set the audio volume (0-1)
 - `.currentTime` – get or set the current playback position in seconds
 
