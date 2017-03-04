@@ -1,3 +1,0 @@
-docker build -t node-web .
-docker run --rm --name ws node-web node websocket-relay.js sec 8081 8082
-docker run -d --rm --name web -p 80:80 node-web node node_modules/http-server/bin/http-server . -p 80
