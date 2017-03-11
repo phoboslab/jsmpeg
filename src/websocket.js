@@ -35,7 +35,7 @@ WSSource.prototype.start = function() {
 	this.progress = 0;
 	this.established = false;
 
-	this.socket = new WebSocket(this.url, this.options.protocols || '');
+	this.socket = new WebSocket(this.url, this.options.protocols);
 	this.socket.binaryType = 'arraybuffer';
 	this.socket.onmessage = this.onMessage.bind(this);
 	this.socket.onopen = this.onOpen.bind(this);
