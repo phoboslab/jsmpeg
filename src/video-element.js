@@ -57,6 +57,7 @@ var VideoElement = function(element) {
 
 	// Create the player instance
 	this.player = new JSMpeg.Player(url, options);
+	element.playerInstance = this.player;
 
 	// Setup the poster element, if any
 	if (options.poster && !options.autoplay && !this.player.options.streaming) {
