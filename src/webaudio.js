@@ -107,7 +107,7 @@ WebAudioOut.prototype.unlock = function(callback) {
 	var source = this.context.createBufferSource();
 	source.buffer = buffer;
 	source.connect(this.destination);
-	source.start(0);
+	source.noteOn(0);
 
 	setTimeout(this.checkIfUnlocked.bind(this, source, 0), 0);
 };
