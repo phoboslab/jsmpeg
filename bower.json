@@ -1,0 +1,14 @@
+{
+  "name": "jsmpeg",
+  "version": "1.0.0",
+  "authors": [
+    "Dominic Szablewski"
+  ],
+  "description": "jsmpeg library",
+  "main": "jsmpg.js",
+  "keywords": [
+    "jsmpeg"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/phoboslab/jsmpeg"
+}
