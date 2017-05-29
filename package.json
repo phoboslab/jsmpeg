@@ -1,0 +1,33 @@
+{
+    "name": "jsmpeg",
+    "version": "0.1.0",
+    "description": "MPEG1 Video Decoder in JavaScript",
+    "main": "jsmpeg-0.1.0.min.js",
+    "devDependencies": {
+        "ws": "~0.4.32",
+        "grunt": "~0.4.2",
+        "grunt-contrib-jshint": "~0.6.3",
+        "grunt-contrib-concat": ">=0.4.0",
+        "grunt-contrib-uglify": ">=0.2.2",
+        "grunt-contrib-clean": ">=0.4.1",
+        "grunt-git-describe": "~2.0.2",
+        "grunt-replace": ">=0.7.7"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/phoboslab/jsmpeg.git"
+    },
+    "keywords": [
+        "video",
+        "mpeg"
+    ],
+    "author": {
+        "name": "Dominic Szablewski",
+        "url": "http://phoboslab.org"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/phoboslab/jsmpeg/issues"
+    },
+    "homepage": "https://github.com/phoboslab/jsmpeg"
+}
