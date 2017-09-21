@@ -23,6 +23,7 @@ var Player = function(url, options) {
 	this.maxAudioLag = options.maxAudioLag || 0.25;
 	this.loop = options.loop !== false;
 	this.autoplay = !!options.autoplay || options.streaming;
+	this.playingStateChange = options.playingStateChange;
 
 	this.demuxer = new JSMpeg.Demuxer.TS(options);
 	this.source.connect(this.demuxer);
@@ -83,6 +84,8 @@ Player.prototype.pause = function(ev) {
 	cancelAnimationFrame(this.animationId);
 	this.wantsToPlay = false;
 	this.isPlaying = false;
+
+	this.OnIsPlaying(false);
 
 	if (this.audio && this.audio.canPlay) {
 		// Seek to the currentTime again - audio may already be enqueued a bit
@@ -154,6 +157,7 @@ Player.prototype.update = function() {
 
 	if (!this.isPlaying) {
 		this.isPlaying = true;
+		this.OnIsPlaying(true);
 		this.startTime = JSMpeg.Now() - this.currentTime;
 	}
 
@@ -187,6 +191,12 @@ Player.prototype.updateForStreaming = function() {
 		this.audioOut.enabled = true;
 	}
 };
+
+Player.prototype.OnIsPlaying = function(playing) {
+	if(this.playingStateChange){
+		this.playingStateChange(playing);
+	}
+}
 
 Player.prototype.updateForStaticFile = function() {
 	var notEnoughData = false,
