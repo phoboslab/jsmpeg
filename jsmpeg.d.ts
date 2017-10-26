@@ -1,69 +1,70 @@
 
-declare module JSMpeg {
-    
-    export class Player {
-        options: PlayerOptions;
-        source: VideoSource;
+export default {
+    Player: Player
+};
 
-        maxAudioLag: number;
-        loop: boolean;
-        autoplay: boolean;
-        isPlaying: boolean;
+export class Player {
+    options: PlayerOptions;
+    source: VideoSource;
 
-        demuxer: any;
+    maxAudioLag: number;
+    loop: boolean;
+    autoplay: boolean;
+    isPlaying: boolean;
 
-        constructor(url: string, options: PlayerOptions);
+    demuxer: any;
 
-        showHide(): void;
+    constructor(url: string, options: PlayerOptions);
 
-        play(): void;
-        pause(): void;
-        stop(): void;
-        destroy(): void;
-        update(): void;
-        updateForStreaming(): void;
-        updateForStaticFile(): void;
+    showHide(): void;
 
-        seek(): void;
+    play(): void;
+    pause(): void;
+    stop(): void;
+    destroy(): void;
+    update(): void;
+    updateForStreaming(): void;
+    updateForStaticFile(): void;
 
-        getCurrentTime(): number;
-        getVolume(): number;
-        setVolume(): void;
-    }
+    seek(): void;
 
-    export interface PlayerOptions {
-        canvas?: Element;
-        protocols?: string;
-        audio?: boolean;
-        loop?: boolean;
-        streaming?: boolean;
-        pauseWhenHidden?: boolean;
-        source?: boolean;
-        progressive?: boolean;
-        maxAudioLag?: number;
-        autoplay?: boolean;
-        video?: boolean;
-        disableGl?: boolean;
-        playingStateChange?: (playingState: boolean) => void;
-    }
+    getCurrentTime(): number;
+    getVolume(): number;
+    setVolume(): void;
+}
 
-    export interface VideoSource {
-        destroy(): void;
-    }
+export interface PlayerOptions {
+    canvas?: Element;
+    protocols?: string;
+    audio?: boolean;
+    loop?: boolean;
+    streaming?: boolean;
+    pauseWhenHidden?: boolean;
+    source?: boolean;
+    progressive?: boolean;
+    maxAudioLag?: number;
+    autoplay?: boolean;
+    video?: boolean;
+    disableGl?: boolean;
+    playingStateChange?: (playingState: boolean) => void;
+}
 
-    export class WebSocket implements VideoSource {
-        public url: string;
-        public options: PlayerOptions;
-        public socket: any;
+export interface VideoSource {
+    destroy(): void;
+}
 
-        constructor(url: string, options: PlayerOptions);
+export class WebSocket implements VideoSource {
+    public url: string;
+    public options: PlayerOptions;
+    public socket: any;
 
-        connect(): void;
-        destroy(): void;
-        start(): void;
-        resume(): void;
-        onOpen(): void;
-        onClose(): void;
-        onMessage(): void;
-    }
+    constructor(url: string, options: PlayerOptions);
+
+    connect(): void;
+    destroy(): void;
+    start(): void;
+    resume(): void;
+    onOpen(): void;
+    onClose(): void;
+    onMessage(): void;
 }
