@@ -103,3 +103,8 @@ else {
 	document.addEventListener('DOMContentLoaded', JSMpeg.CreateVideoElements);
 }
 
+if (typeof module !== 'undefined' && typeof module.exports !== 'undefined'){
+	module.exports = JSMpeg;
+} else {
+	window.JSMpeg = JSMpeg;
+}
