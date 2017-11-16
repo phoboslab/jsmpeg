@@ -11,6 +11,10 @@ var Player = function(url, options) {
 		this.source = new JSMpeg.Source.WebSocket(url, options);
 		options.streaming = true;
 	}
+	else if (options.chunks) {
+		this.source = new JSMpeg.Source.AjaxChunks(url, options);
+		options.streaming = false;
+	}
 	else if (options.progressive !== false) {
 		this.source = new JSMpeg.Source.AjaxProgressive(url, options);
 		options.streaming = false;

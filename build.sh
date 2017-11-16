@@ -6,6 +6,7 @@ uglifyjs \
 	src/buffer.js \
 	src/ajax.js \
 	src/ajax-progressive.js \
+	src/ajax-chunks.js \
 	src/websocket.js \
 	src/ts.js \
 	src/decoder.js \
