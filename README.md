@@ -43,8 +43,10 @@ The `options` argument supports the following properties:
 - `disableGl` - whether to disable WebGL and always use the Canvas2D renderer. Default `false`.
 - `preserveDrawingBuffer` – whether the WebGL context is created with `preserveDrawingBuffer` - necessary for "screenshots" via `canvas.toDataURL()`. Default `false`.
 - `progressive` - whether to load data in chunks (static files only). When enabled, playback can begin before the whole source has been completely loaded. Default `true`.
-- `throttled` - when using `progressive`, whether to defer loading chunks when they're not needed for playback yet. Default `true`.
+- `chunks` - Like progressive, but works with separate binary chunks. This is good option in case of highload. In progressive mode you will have 2*N+2 requests because of CSP. In this mode - just N requests. Default `false`.
+- `throttled` - when using `progressive` or `chunks`, whether to defer loading chunks when they're not needed for playback yet. Default `true`.
 - `chunkSize` - when using `progressive`, the chunk size in bytes to load at a time. Default `1024*1024` (1mb).
+- `chunkDigits` - when using `chunks`, the chunk digits count in url suffix. Default `2`. For instance, if url=/test.ts and chunkDigits=3, then actual chunk urls will look like /test.ts.000, /test.ts.001, etc.
 - `decodeFirstFrame` - whether to decode and display the first frame of the video. Useful to set up the Canvas size and use the frame as the "poster" image. This has no effect when using `autoplay` or streaming sources. Default `true`.
 - `maxAudioLag` – when streaming, the maximum enqueued audio length in seconds.
 - `videoBufferSize` – when streaming, size in bytes for the video decode buffer. Default 512*1024 (512kb). You may have to increase this for very high bitrates.
@@ -220,6 +222,49 @@ In my tests, USB Webcams introduce about ~180ms of latency and there seems to be
 
 To capture webcam input on Windows or macOS using ffmpeg, see the [ffmpeg Capture/Webcam Wiki](https://trac.ffmpeg.org/wiki/Capture/Webcam).
 
+
+## Chunks vs Progressive
+
+Progressive mode based on Range header. But it requires special server-side tuning related with CSP issues. For instance, possible nginx config may looks like this:
+
+```
+location / {
+    add_header Access-Control-Allow-Origin "$http_origin";
+    add_header Access-Control-Allow-Methods 'GET, HEAD, OPTIONS';
+    add_header Access-Control-Allow-Headers 'Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Content-Range,Range';
+    add_header Access-Control-Allow-Credentials "true";
+    add_header Access-Control-Expose-Headers "Content-Length";
+    if ($request_method = 'OPTIONS') {
+        return 204;
+    }
+}
+```
+
+Also, for N-chunked video you will have 2*N+2 requests:
+* The first HEAD request to get file size (read Content-Length header) + duplicate OPTIONS request (CSP related stuff)
+* N GET requests with Range header + N duplicate OPTIONS requests (also CSP)
+
+In case of GET/HEAD requests we can expect caching on CDN side. But not for OPTIONS.
+
+I.e. this is not suitable solution for highload.
+
+In contrast, chunks mode works with out-of-box configured server. Also, it produce only N requests. But also it requires additional files preparation. For instance, we can prepare file like this:
+
+```
+$ split --bytes=32k -d -a 4 test.ts test.ts.
+```
+
+and then use it with options:
+
+```
+options = {
+    chunks = true;
+    chunkDigits = 4;
+    throttled: true,
+    canvas: document.getElementById('video')
+};
+var player = new JSMpeg.Player('test.ts', options);
+```
 
 ## JSMpeg Architecture and Internals
 
