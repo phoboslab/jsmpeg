@@ -27,7 +27,7 @@ declare module "jsmpeg"{
 
         getCurrentTime(): number;
         getVolume(): number;
-        setVolume(): void;
+        setVolume(level:number): void;
     }
 
     export interface PlayerOptions {
