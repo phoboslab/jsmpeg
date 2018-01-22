@@ -36,6 +36,7 @@ declare module "jsmpeg"{
         audio?: boolean;
         loop?: boolean;
         streaming?: boolean;
+        poster?: string;
         pauseWhenHidden?: boolean;
         source?: boolean;
         progressive?: boolean;
