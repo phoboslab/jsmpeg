@@ -18,7 +18,9 @@
     "url": "https://github.com/EpicOkapi/jsmpeg/issues"
   },
   "homepage": "https://github.com/EpicOkapi/jsmpeg#readme",
-  "dependencies": {},
+  "dependencies": {
+    "uglifyjs": "^2.4.11"
+  },
   "devDependencies": {
     "uglify-js": "^3.1.5"
   }

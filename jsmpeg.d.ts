@@ -45,6 +45,7 @@ declare module "jsmpeg"{
         video?: boolean;
         disableGl?: boolean;
         playingStateChange?: (playingState: boolean) => void;
+        dataLoaded?: () => void;
     }
 
     export interface VideoSource {
