@@ -3,7 +3,8 @@ JSMpeg.Source.WebSocket = (function(){ "use strict";
 var WSSource = function(url, options) {
 	this.url = url;
 	this.options = options;
-	this.socket = null;	
+	this.socket = null;
+	this.hasData = false;
 
 	this.callbacks = {connect: [], data: []};
 	this.destination = null;
@@ -12,6 +13,9 @@ var WSSource = function(url, options) {
 		? options.reconnectInterval
 		: 5;
 	this.shouldAttemptReconnect = !!this.reconnectInterval;
+
+	this.onDataLoaded = null;
+	this.player = null;
 
 	this.completed = false;
 	this.established = false;
@@ -34,7 +38,7 @@ WSSource.prototype.start = function() {
 	this.shouldAttemptReconnect = !!this.reconnectInterval;
 	this.progress = 0;
 	this.established = false;
-	
+
 	this.socket = new WebSocket(this.url, this.options.protocols || null);
 	this.socket.binaryType = 'arraybuffer';
 	this.socket.onmessage = this.onMessage.bind(this);
@@ -56,13 +60,19 @@ WSSource.prototype.onClose = function() {
 	if (this.shouldAttemptReconnect) {
 		clearTimeout(this.reconnectTimeoutId);
 		this.reconnectTimeoutId = setTimeout(function(){
-			this.start();	
+			this.start();
 		}.bind(this), this.reconnectInterval*1000);
 	}
 };
 
 WSSource.prototype.onMessage = function(ev) {
 	if (this.destination) {
+		if(!this.hasData){
+				if(this.onDataLoaded){
+						 this.onDataLoaded(this.player);
+				}
+				this.hasData = true;
+		}
 		this.destination.write(ev.data);
 	}
 };
@@ -70,4 +80,3 @@ WSSource.prototype.onMessage = function(ev) {
 return WSSource;
 
 })();
-

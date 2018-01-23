@@ -9,6 +9,7 @@ var Player = function(url, options) {
 	}
 	else if (url.match(/^wss?:\/\//)) {
 		this.source = new JSMpeg.Source.WebSocket(url, options);
+		this.source.onDataLoaded = this.onDataLoaded;
 		options.streaming = true;
 	}
 	else if (options.progressive !== false) {
@@ -24,6 +25,7 @@ var Player = function(url, options) {
 	this.loop = options.loop !== false;
 	this.autoplay = !!options.autoplay || options.streaming;
 	this.playingStateChange = options.playingStateChange;
+	this.dataLoaded = options.dataLoaded;
 
 	this.demuxer = new JSMpeg.Demuxer.TS(options);
 	this.source.connect(this.demuxer);
@@ -57,6 +59,32 @@ var Player = function(url, options) {
 	if (options.pauseWhenHidden !== false) {
 		document.addEventListener('visibilitychange', this.showHide.bind(this));
 	}
+
+	//Load poster image (loading indicator)
+	if(options.poster && this.renderer.canvas) {
+
+		var container = this.renderer.canvas.parentElement;
+
+		if(!container){
+		   console.warn('Could not get parent element for poster');
+		} else {
+			 this.poster = document.createElement('div');
+			 if(this.poster){
+				 this.poster.style['display'] = 'block';
+				 this.poster.style['zIndex'] = 2;
+				 this.poster.style['position'] = 'absolute';
+				 this.poster.style['width'] = this.renderer.canvas.width;
+				 this.poster.style['height'] = this.renderer.canvas.height;
+				 this.poster.style['top'] = 0;
+				 this.poster.style['left'] = 0;
+				 this.poster.style['background'] = 'url(\''+ options.poster +'\') center center no-repeat';
+
+				 this.source.player = this;
+
+				 container.appendChild(this.poster);
+			 }
+		}
+  }
 
 	this.source.start();
 
@@ -186,7 +214,7 @@ Player.prototype.updateForStreaming = function() {
 				this.audioOut.resetEnqueuedTime();
 				this.audioOut.enabled = false;
 			}
-			decoded = this.audio.decode();		
+			decoded = this.audio.decode();
 		} while (decoded);
 		this.audioOut.enabled = true;
 	}
@@ -196,6 +224,23 @@ Player.prototype.OnIsPlaying = function(playing) {
 	if(this.playingStateChange){
 		this.playingStateChange(playing);
 	}
+}
+
+Player.prototype.onDataLoaded = function(player) {
+	  //remove poster image
+	  if(player){
+			  if(player.poster){
+						player.poster.style['display'] = 'none';
+				}
+
+				if(player.dataLoaded){
+					   player.dataLoaded();
+				}
+
+		}
+
+
+
 }
 
 Player.prototype.updateForStaticFile = function() {
@@ -208,7 +253,7 @@ Player.prototype.updateForStaticFile = function() {
 	if (this.audio && this.audio.canPlay) {
 		// Do we have to decode and enqueue some more audio data?
 		while (
-			!notEnoughData && 
+			!notEnoughData &&
 			this.audio.decodedTime - this.audio.currentTime < 0.25
 		) {
 			notEnoughData = !this.audio.decode();
@@ -261,4 +306,3 @@ Player.prototype.updateForStaticFile = function() {
 return Player;
 
 })();
-
