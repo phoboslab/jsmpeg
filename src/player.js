@@ -78,7 +78,7 @@ var Player = function(url, options) {
 				 this.poster.style['top'] = 0;
 				 this.poster.style['left'] = 0;
 				 this.poster.style['background'] = 'url(\''+ options.poster +'\') center center no-repeat';
-
+				 this.poster.className = 'video_loader';
 				 this.source.player = this;
 
 				 container.appendChild(this.poster);
@@ -229,8 +229,15 @@ Player.prototype.OnIsPlaying = function(playing) {
 Player.prototype.onDataLoaded = function(player) {
 	  //remove poster image
 	  if(player){
+
 			  if(player.poster){
-						player.poster.style['display'] = 'none';
+						var elements = document.getElementsByClassName('video_loader');
+				    while(elements.length > 0){
+							  //console.log('remove ', elements[0]);
+								elements[0].parentNode.removeChild(elements[0]);
+
+				    }
+						player.poster = null;
 				}
 
 				if(player.dataLoaded){
