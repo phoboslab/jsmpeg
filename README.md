@@ -41,6 +41,7 @@ The `options` argument supports the following properties:
 - `poster` – URL to an image to use as the poster to show before the video plays.
 - `pauseWhenHidden` – whether to pause playback when the tab is inactive. Default `true`. Note that browsers usually throttle JS in inactive tabs anyway.
 - `disableGl` - whether to disable WebGL and always use the Canvas2D renderer. Default `false`.
+- `disableWebAssembly` - whether to disable WebAssembly and always use JavaScript decoders. Default `false`.
 - `preserveDrawingBuffer` – whether the WebGL context is created with `preserveDrawingBuffer` - necessary for "screenshots" via `canvas.toDataURL()`. Default `false`.
 - `progressive` - whether to load data in chunks (static files only). When enabled, playback can begin before the whole source has been completely loaded. Default `true`.
 - `throttled` - when using `progressive`, whether to defer loading chunks when they're not needed for playback yet. Default `true`.
@@ -49,6 +50,8 @@ The `options` argument supports the following properties:
 - `maxAudioLag` – when streaming, the maximum enqueued audio length in seconds.
 - `videoBufferSize` – when streaming, size in bytes for the video decode buffer. Default 512*1024 (512kb). You may have to increase this for very high bitrates.
 - `audioBufferSize` – when streaming, size in bytes for the audio decode buffer. Default 128*1024 (128kb). You may have to increase this for very high bitrates.
+- `onVideoDecode(decoder, time)` – A callback that is called after each decoded and rendered video frame
+- `onAudioDecode(decoder, time)` – A callback that is called after each decoded audio frame
 
 All options except from `canvas` can also be used with the HTML Element through `data-` attributes. E.g. to specify looping and autoplay in JavaScript:
 
@@ -103,6 +106,10 @@ ffmpeg -i in.mp4 -f mpegts \
 While JSMpeg can handle 720p video at 30fps even on an iPhone 5S, keep in mind that MPEG1 is not as efficient as modern codecs. MPEG1 needs quite a bit of bandwidth for HD video. 720p begins to look okay-ish at 2 Mbits/s (that's 250kb/s). Also, the higher the bitrate, the more work JavaScript has to do to decode it.
 
 This should not be a problem for static files, or if you're only streaming within your local WiFi. If you don't need to support mobile devices, 1080p at 10mbit/s works just fine (if your encoder can keep up). For everything else I would advise you to use 540p (960x540) at 2Mbit/s max.
+
+Here is a performance comparison with multiple resolutions and features en-/disabled. Test this on your target devices to get a feel for what you can get away with.
+
+https://jsmpeg.com/perf.html
 
 
 ## Streaming via WebSockets
