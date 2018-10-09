@@ -6,6 +6,7 @@ JSMpeg.Decoder.MP2AudioWASM = (function(){ "use strict";
 var MP2WASM = function(options) {
 	JSMpeg.Decoder.Base.call(this, options);
 
+	this.onDecodeCallback = options.onAudioDecode;
 	this.module = options.wasmModule;
 
 	this.bufferSize = options.audioBufferSize || 128*1024;
@@ -62,10 +63,13 @@ MP2WASM.prototype.bufferWrite = function(buffers) {
 };
 
 MP2WASM.prototype.decode = function() {
-	if (!this.decoder) { return; }
-	
-	var decodedBytes = this.functions._mp2_decoder_decode(this.decoder);
+	var startTime = JSMpeg.Now();
 
+	if (!this.decoder) {
+		return false;
+	}	
+
+	var decodedBytes = this.functions._mp2_decoder_decode(this.decoder);
 	if (decodedBytes === 0) {
 		return false;
 	}
@@ -89,6 +93,11 @@ MP2WASM.prototype.decode = function() {
 	}
 
 	this.advanceDecodedTime(MP2WASM.SAMPLES_PER_FRAME / this.sampleRate);
+
+	var elapsedTime = JSMpeg.Now() - startTime;
+	if (this.onDecodeCallback) {
+		this.onDecodeCallback(this, elapsedTime);
+	}
 	return true;
 };
 

@@ -3,6 +3,7 @@ JSMpeg.Decoder.MPEG1VideoWASM = (function(){ "use strict";
 var MPEG1WASM = function(options) {
 	JSMpeg.Decoder.Base.call(this, options);
 
+	this.onDecodeCallback = options.onVideoDecode;
 	this.module = options.wasmModule;
 
 	this.bufferSize = options.videoBufferSize || 512*1024;
@@ -84,10 +85,13 @@ MPEG1WASM.prototype.loadSequnceHeader = function() {
 };
 
 MPEG1WASM.prototype.decode = function() {
-	if (!this.decoder) { return; }
-	
-	var didDecode = this.functions._mpeg1_decoder_decode(this.decoder);
+	var startTime = JSMpeg.Now();
 
+	if (!this.decoder) {
+		return false;
+	}
+
+	var didDecode = this.functions._mpeg1_decoder_decode(this.decoder);
 	if (!didDecode) {
 		return false;
 	}
@@ -106,6 +110,11 @@ MPEG1WASM.prototype.decode = function() {
 	}
 
 	this.advanceDecodedTime(1/this.frameRate);
+
+	var elapsedTime = JSMpeg.Now() - startTime;
+	if (this.onDecodeCallback) {
+		this.onDecodeCallback(this, elapsedTime);
+	}
 	return true;
 };
 
