@@ -27,17 +27,28 @@ var Player = function(url, options) {
 	this.demuxer = new JSMpeg.Demuxer.TS(options);
 	this.source.connect(this.demuxer);
 
+	if (!options.disableWebAssembly && JSMpeg.WASMModule.IsSupported()) {
+		this.wasmModule = new JSMpeg.WASMModule();
+		options.wasmModule =this.wasmModule;
+	}
+
 	if (options.video !== false) {
-		this.video = new JSMpeg.Decoder.MPEG1Video(options);
+		this.video = options.wasmModule
+			? new JSMpeg.Decoder.MPEG1VideoWASM(options)
+			: new JSMpeg.Decoder.MPEG1Video(options);
+
 		this.renderer = !options.disableGl && JSMpeg.Renderer.WebGL.IsSupported()
 			? new JSMpeg.Renderer.WebGL(options)
 			: new JSMpeg.Renderer.Canvas2D(options);
+		
 		this.demuxer.connect(JSMpeg.Demuxer.TS.STREAM.VIDEO_1, this.video);
 		this.video.connect(this.renderer);
 	}
 
 	if (options.audio !== false && JSMpeg.AudioOutput.WebAudio.IsSupported()) {
-		this.audio = new JSMpeg.Decoder.MP2Audio(options);
+		this.audio = options.wasmModule
+			? new JSMpeg.Decoder.MP2AudioWASM(options)
+			: new JSMpeg.Decoder.MP2Audio(options);
 		this.audioOut = new JSMpeg.AudioOutput.WebAudio(options);
 		this.demuxer.connect(JSMpeg.Demuxer.TS.STREAM.AUDIO_1, this.audio);
 		this.audio.connect(this.audioOut);
@@ -57,8 +68,26 @@ var Player = function(url, options) {
 		document.addEventListener('visibilitychange', this.showHide.bind(this));
 	}
 
-	this.source.start();
+	// If we have WebAssembly support, wait until the module is compiled before
+	// loading the source. Otherwise the decoders won't know what to do with 
+	// the source data.
+	if (this.wasmModule) {
+		if (JSMpeg.WASM_BINARY_INLINED) {
+			var wasm = JSMpeg.Base64ToArrayBuffer(JSMpeg.WASM_BINARY_INLINED);
+			this.wasmModule.loadFromBuffer(wasm, this.startLoading.bind(this));
+		}
+		else {
+			this.wasmModule.loadFromFile('jsmpeg.wasm',  this.startLoading.bind(this));
+		}
+	}
+	else {
+		this.startLoading();
+		
+	}
+};
 
+Player.prototype.startLoading = function() {
+	this.source.start();
 	if (this.autoplay) {
 		this.play();
 	}
@@ -113,8 +142,10 @@ Player.prototype.stop = function(ev) {
 Player.prototype.destroy = function() {
 	this.pause();
 	this.source.destroy();
-	this.renderer.destroy();
-	this.audioOut.destroy();
+	this.video && this.video.destroy();
+	this.renderer && this.renderer.destroy();
+	this.audio && this.audio.destroy();
+	this.audioOut && this.audioOut.destroy();
 };
 
 Player.prototype.seek = function(time) {
