@@ -205,7 +205,7 @@ MPEG1.prototype.decodePicture = function(skipOutput) {
 
 	// Invoke decode callbacks
 	if (this.destination) {
-		this.destination.render(this.currentY, this.currentCr, this.currentCb);
+		this.destination.render(this.currentY, this.currentCr, this.currentCb, true);
 	}
 
 	// If this is a reference picutre then rotate the prediction pointers
