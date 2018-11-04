@@ -83,7 +83,9 @@ WebGLRenderer.prototype.resize = function(width, height) {
 	this.canvas.height = this.height;
 
 	this.gl.useProgram(this.program);
-	this.gl.viewport(0, 0, this.width, this.height);
+
+	var codedWidth = ((this.width + 15) >> 4) << 4;
+	this.gl.viewport(0, 0, codedWidth, this.height);
 };
 
 WebGLRenderer.prototype.createTexture = function(index, name) {
