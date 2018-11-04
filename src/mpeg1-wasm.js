@@ -29,14 +29,23 @@ MPEG1WASM.prototype.initializeWasmDecoder = function() {
 };
 
 MPEG1WASM.prototype.destroy = function() {
+	if (!this.decoder) {
+		return;
+	}
 	this.functions._mpeg1_decoder_destroy(this.decoder);
 };
 
 MPEG1WASM.prototype.bufferGetIndex = function() {
+	if (!this.decoder) {
+		return;
+	}
 	return this.functions._mpeg1_decoder_get_index(this.decoder);
 };
 
 MPEG1WASM.prototype.bufferSetIndex = function(index) {
+	if (!this.decoder) {
+		return;
+	}
 	this.functions._mpeg1_decoder_set_index(this.decoder, index);
 };
 

@@ -31,14 +31,23 @@ MP2WASM.prototype.initializeWasmDecoder = function() {
 };
 
 MP2WASM.prototype.destroy = function() {
+	if (!this.decoder) {
+		return;
+	}
 	this.functions._mp2_decoder_destroy(this.decoder);
 };
 
 MP2WASM.prototype.bufferGetIndex = function() {
+	if (!this.decoder) {
+		return;
+	}
 	return this.functions._mp2_decoder_get_index(this.decoder);
 };
 
 MP2WASM.prototype.bufferSetIndex = function(index) {
+	if (!this.decoder) {
+		return;
+	}
 	this.functions._mp2_decoder_set_index(this.decoder, index);
 };
 
