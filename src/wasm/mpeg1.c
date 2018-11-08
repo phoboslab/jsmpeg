@@ -1643,6 +1643,7 @@ void add_block_to_destination(int *block, uint8_t *dest, int index, int scan) {
 }
 
 void copy_value_to_destination(int value, uint8_t *dest, int index, int scan) {
+	value = clamp_to_uint8(value);
 	for (int n = 0; n < 64; n += 8, index += scan+8) {
 		dest[index+0] = value;
 		dest[index+1] = value;
@@ -1657,14 +1658,14 @@ void copy_value_to_destination(int value, uint8_t *dest, int index, int scan) {
 
 void add_value_to_destination(int value, uint8_t *dest, int index, int scan) {
 	for (int n = 0; n < 64; n += 8, index += scan+8) {
-		dest[index+0] += value;
-		dest[index+1] += value;
-		dest[index+2] += value;
-		dest[index+3] += value;
-		dest[index+4] += value;
-		dest[index+5] += value;
-		dest[index+6] += value;
-		dest[index+7] += value;
+		dest[index+0] = clamp_to_uint8(dest[index+0] + value);
+		dest[index+1] = clamp_to_uint8(dest[index+1] + value);
+		dest[index+2] = clamp_to_uint8(dest[index+2] + value);
+		dest[index+3] = clamp_to_uint8(dest[index+3] + value);
+		dest[index+4] = clamp_to_uint8(dest[index+4] + value);
+		dest[index+5] = clamp_to_uint8(dest[index+5] + value);
+		dest[index+6] = clamp_to_uint8(dest[index+6] + value);
+		dest[index+7] = clamp_to_uint8(dest[index+7] + value);
 	}
 }
 
