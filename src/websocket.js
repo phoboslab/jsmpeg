@@ -18,6 +18,9 @@ var WSSource = function(url, options) {
 	this.progress = 0;
 
 	this.reconnectTimeoutId = 0;
+
+	this.onEstablishedCallback = options.onSourceEstablished;
+	this.onCompletedCallback = options.onSourceCompleted; // Never used
 };
 
 WSSource.prototype.connect = function(destination) {
@@ -49,7 +52,6 @@ WSSource.prototype.resume = function(secondsHeadroom) {
 
 WSSource.prototype.onOpen = function() {
 	this.progress = 1;
-	this.established = true;
 };
 
 WSSource.prototype.onClose = function() {
@@ -62,6 +64,13 @@ WSSource.prototype.onClose = function() {
 };
 
 WSSource.prototype.onMessage = function(ev) {
+	var isFirstChunk = !this.established;
+	this.established = true;
+
+	if (isFirstChunk && this.onEstablishedCallback) {
+		this.onEstablishedCallback(this);
+	}
+
 	if (this.destination) {
 		this.destination.write(ev.data);
 	}

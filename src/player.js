@@ -29,7 +29,7 @@ var Player = function(url, options) {
 
 	if (!options.disableWebAssembly && JSMpeg.WASMModule.IsSupported()) {
 		this.wasmModule = new JSMpeg.WASMModule();
-		options.wasmModule =this.wasmModule;
+		options.wasmModule = this.wasmModule;
 	}
 
 	if (options.video !== false) {
@@ -63,6 +63,7 @@ var Player = function(url, options) {
 		set: this.setVolume
 	});
 
+	this.paused = true;
 	this.unpauseOnShow = false;
 	if (options.pauseWhenHidden !== false) {
 		document.addEventListener('visibilitychange', this.showHide.bind(this));
@@ -104,20 +105,35 @@ Player.prototype.showHide = function(ev) {
 };
 
 Player.prototype.play = function(ev) {
+	if (this.animationId) {
+		return;
+	}
+
 	this.animationId = requestAnimationFrame(this.update.bind(this));
 	this.wantsToPlay = true;
+	this.paused = false;
 };
 
 Player.prototype.pause = function(ev) {
+	if (this.paused) {
+		return;
+	}
+
 	cancelAnimationFrame(this.animationId);
+	this.animationId = null;
 	this.wantsToPlay = false;
 	this.isPlaying = false;
+	this.paused = true;
 
 	if (this.audio && this.audio.canPlay) {
 		// Seek to the currentTime again - audio may already be enqueued a bit
 		// further, so we have to rewind it.
 		this.audioOut.stop();
 		this.seek(this.currentTime);
+	}
+
+	if (this.options.onPause) {
+		this.options.onPause(this);
 	}
 };
 
@@ -186,6 +202,10 @@ Player.prototype.update = function() {
 	if (!this.isPlaying) {
 		this.isPlaying = true;
 		this.startTime = JSMpeg.Now() - this.currentTime;
+
+		if (this.options.onPlay) {
+			this.options.onPlay(this);
+		}
 	}
 
 	if (this.options.streaming) {
@@ -217,6 +237,13 @@ Player.prototype.updateForStreaming = function() {
 		} while (decoded);
 		this.audioOut.enabled = true;
 	}
+};
+
+Player.prototype.nextFrame = function() {
+	if (this.source.established && this.video) {
+		return this.video.decode();
+	}
+	return false;
 };
 
 Player.prototype.updateForStaticFile = function() {
@@ -275,7 +302,16 @@ Player.prototype.updateForStaticFile = function() {
 		}
 		else {
 			this.pause();
+			if (this.options.onEnded) {
+				this.options.onEnded(this);
+			}
 		}
+	}
+
+	// If there's not enough data and the source is not completed, we have
+	// just stalled.
+	else if (notEnoughData && this.options.onStalled) {
+		this.options.onStalled(this);
 	}
 };
 

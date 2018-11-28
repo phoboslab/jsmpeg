@@ -8,6 +8,9 @@ var AjaxSource = function(url, options) {
 	this.completed = false;
 	this.established = false;
 	this.progress = 0;
+
+	this.onEstablishedCallback = options.onSourceEstablished;
+	this.onCompletedCallback = options.onSourceCompleted;
 };
 
 AjaxSource.prototype.connect = function(destination) {
@@ -48,6 +51,13 @@ AjaxSource.prototype.onLoad = function(data) {
 	this.established = true;
 	this.completed = true;
 	this.progress = 1;
+
+	if (this.onEstablishedCallback) {
+		this.onEstablishedCallback(this);
+	}
+	if (this.onCompletedCallback) {
+		this.onCompletedCallback(this);
+	}
 
 	if (this.destination) {
 		this.destination.write(data);

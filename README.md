@@ -52,6 +52,13 @@ The `options` argument supports the following properties:
 - `audioBufferSize` – when streaming, size in bytes for the audio decode buffer. Default 128*1024 (128kb). You may have to increase this for very high bitrates.
 - `onVideoDecode(decoder, time)` – A callback that is called after each decoded and rendered video frame
 - `onAudioDecode(decoder, time)` – A callback that is called after each decoded audio frame
+- `onPlay(player)` – A callback that is called whenever playback starts
+- `onPause(player)` – A callback that is called whenever playback paused (e.g. when .pause() is called or the source has ended)
+- `onEnded(player)` – A callback that is called when playback has reached the end of the source (only called when `loop` is `false`).
+- `onStalled(player)` – A callback that is called whenever there's not enough data for playback
+- `onSourceEstablished(source)` – A callback that is called when source has first received data
+- `onSourceCompleted(source)` – A callback that is called when the source has received all data
+
 
 All options except from `canvas` can also be used with the HTML Element through `data-` attributes. E.g. to specify looping and autoplay in JavaScript:
 
@@ -75,9 +82,11 @@ A `JSMpeg.Player` instance supports the following methods and properties:
 - `.play()` – start playback
 - `.pause()` – pause playback
 - `.stop()` – stop playback and seek to the beginning
+- `.nextFrame()` – advance playback by one video frame. This does not decode audio. Returns `true` on success, `false` when there's not enough data.
 - `.destroy()` – stops playback, disconnects the source and cleans up WebGL and WebAudio state. The player can not be used afterwards.
 - `.volume` – get or set the audio volume (0-1)
 - `.currentTime` – get or set the current playback position in seconds
+- `.paused` – read only, wether playback is paused
 
 
 ## Encoding Video/Audio for JSMpeg
