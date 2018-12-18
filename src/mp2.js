@@ -6,6 +6,8 @@ JSMpeg.Decoder.MP2Audio = (function(){ "use strict";
 var MP2 = function(options) {
 	JSMpeg.Decoder.Base.call(this, options);
 
+	this.onDecodeCallback = options.onAudioDecode;
+
 	var bufferSize = options.audioBufferSize || 128*1024;
 	var bufferMode = options.streaming
 		? JSMpeg.BitBuffer.MODE.EVICT
@@ -41,6 +43,8 @@ MP2.prototype = Object.create(JSMpeg.Decoder.Base.prototype);
 MP2.prototype.constructor = MP2;
 
 MP2.prototype.decode = function() {
+	var startTime = JSMpeg.Now();
+
 	var pos = this.bits.index >> 3;
 	if (pos >= this.bits.byteLength) {
 		return false;
@@ -48,7 +52,6 @@ MP2.prototype.decode = function() {
 
 	var decoded = this.decodeFrame(this.left, this.right);
 	this.bits.index = (pos + decoded) << 3;
-
 	if (!decoded) {
 		return false;
 	}
@@ -58,6 +61,11 @@ MP2.prototype.decode = function() {
 	}
 
 	this.advanceDecodedTime(this.left.length / this.sampleRate);
+
+	var elapsedTime = JSMpeg.Now() - startTime;
+	if (this.onDecodeCallback) {
+		this.onDecodeCallback(this, elapsedTime);
+	}
 	return true;
 };
 

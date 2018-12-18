@@ -99,6 +99,8 @@ BitBuffer.prototype.write = function(buffers) {
 	else {
 		this.appendSingleBuffer(buffers);
 	}
+
+	return totalLength;
 };
 
 BitBuffer.prototype.appendSingleBuffer = function(buffer) {

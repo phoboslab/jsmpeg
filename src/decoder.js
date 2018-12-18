@@ -5,6 +5,7 @@ var BaseDecoder = function(options) {
 	this.canPlay = false;
 
 	this.collectTimestamps = !options.streaming;
+	this.bytesWritten = 0;
 	this.timestamps = [];
 	this.timestampIndex = 0;
 
@@ -14,8 +15,22 @@ var BaseDecoder = function(options) {
 	Object.defineProperty(this, 'currentTime', {get: this.getCurrentTime});
 };
 
+BaseDecoder.prototype.destroy = function() {};
+
 BaseDecoder.prototype.connect = function(destination) {
 	this.destination = destination;
+};
+
+BaseDecoder.prototype.bufferGetIndex = function() {
+	return this.bits.index;
+};
+
+BaseDecoder.prototype.bufferSetIndex = function(index) {
+	this.bits.index = index;
+};
+
+BaseDecoder.prototype.bufferWrite = function(buffers) {
+	return this.bits.write(buffers);
 };
 
 BaseDecoder.prototype.write = function(pts, buffers) {
@@ -24,10 +39,10 @@ BaseDecoder.prototype.write = function(pts, buffers) {
 			this.startTime = pts;
 			this.decodedTime = pts;
 		}
-		this.timestamps.push({index: this.bits.byteLength << 3, time: pts});
+		this.timestamps.push({index: this.bytesWritten << 3, time: pts});
 	}
 
-	this.bits.write(buffers);
+	this.bytesWritten += this.bufferWrite(buffers);
 	this.canPlay = true;
 };
 
@@ -46,11 +61,11 @@ BaseDecoder.prototype.seek = function(time) {
 
 	var ts = this.timestamps[this.timestampIndex];
 	if (ts) {
-		this.bits.index = ts.index;
+		this.bufferSetIndex(ts.index);
 		this.decodedTime = ts.time;
 	}
 	else {
-		this.bits.index = 0;
+		this.bufferSetIndex(0);
 		this.decodedTime = this.startTime;
 	}
 };
@@ -62,8 +77,9 @@ BaseDecoder.prototype.decode = function() {
 BaseDecoder.prototype.advanceDecodedTime = function(seconds) {
 	if (this.collectTimestamps) {
 		var newTimestampIndex = -1;
+		var currentIndex = this.bufferGetIndex();
 		for (var i = this.timestampIndex; i < this.timestamps.length; i++) {
-			if (this.timestamps[i].index > this.bits.index) {
+			if (this.timestamps[i].index > currentIndex) {
 				break;
 			}
 			newTimestampIndex = i;

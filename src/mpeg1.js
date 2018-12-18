@@ -6,6 +6,8 @@ JSMpeg.Decoder.MPEG1Video = (function(){ "use strict";
 var MPEG1 = function(options) {
 	JSMpeg.Decoder.Base.call(this, options);
 
+	this.onDecodeCallback = options.onVideoDecode;
+
 	var bufferSize = options.videoBufferSize || 512*1024;
 	var bufferMode = options.streaming
 		? JSMpeg.BitBuffer.MODE.EVICT
@@ -40,6 +42,8 @@ MPEG1.prototype.write = function(pts, buffers) {
 };
 
 MPEG1.prototype.decode = function() {
+	var startTime = JSMpeg.Now();
+	
 	if (!this.hasSequenceHeader) {
 		return false;
 	}
@@ -51,6 +55,11 @@ MPEG1.prototype.decode = function() {
 
 	this.decodePicture();
 	this.advanceDecodedTime(1/this.frameRate);
+
+	var elapsedTime = JSMpeg.Now() - startTime;
+	if (this.onDecodeCallback) {
+		this.onDecodeCallback(this, elapsedTime);
+	}
 	return true;
 };
 
@@ -205,7 +214,7 @@ MPEG1.prototype.decodePicture = function(skipOutput) {
 
 	// Invoke decode callbacks
 	if (this.destination) {
-		this.destination.render(this.currentY, this.currentCr, this.currentCb);
+		this.destination.render(this.currentY, this.currentCr, this.currentCb, true);
 	}
 
 	// If this is a reference picutre then rotate the prediction pointers
