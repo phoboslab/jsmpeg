@@ -20,7 +20,9 @@ var WSSource = function(url, options) {
 	this.reconnectTimeoutId = 0;
 
 	this.onEstablishedCallback = options.onSourceEstablished;
-	this.onCompletedCallback = options.onSourceCompleted; // Never used
+  this.onCompletedCallback = options.onSourceCompleted; // Never used
+  
+  this.start();
 };
 
 WSSource.prototype.connect = function(destination) {
@@ -58,7 +60,7 @@ WSSource.prototype.onClose = function() {
 	if (this.shouldAttemptReconnect) {
 		clearTimeout(this.reconnectTimeoutId);
 		this.reconnectTimeoutId = setTimeout(function(){
-			this.start();	
+			this.start();
 		}.bind(this), this.reconnectInterval*1000);
 	}
 };

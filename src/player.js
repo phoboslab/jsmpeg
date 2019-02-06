@@ -74,7 +74,6 @@ var Player = function(socket, options) {
 };
 
 Player.prototype.startLoading = function() {
-	this.source.start();
 	if (this.autoplay) {
 		this.play();
 	}
