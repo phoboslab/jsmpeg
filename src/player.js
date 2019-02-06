@@ -3,7 +3,7 @@ JSMpeg.Player = (function(){ "use strict";
 var Player = function(socket, options) {
 	this.options = options || {};
 
-  this.source = new socket;
+  this.source = socket;
   options.streaming = true;
 
 	this.maxAudioLag = options.maxAudioLag || 0.25;
