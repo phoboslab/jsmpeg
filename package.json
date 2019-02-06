@@ -1,0 +1,12 @@
+{
+  "name": "jsmpeg",
+  "version": "1.0.0",
+  "description": "jsmpeg",
+  "main": "index.js",
+  "dependencies": {
+  },
+  "scripts": {},
+  "devDependencies": {
+    "uglify-js": "^3.4.9"
+  }
+}
