@@ -1,8 +1,8 @@
-# JSMpeg – MPEG1 Video & MP2 Audio Decoder in JavaScript
-
-## Building on OS X
+## SuperAwesome
  - https://emscripten.org/docs/getting_started/downloads.html and actually read what it prints out line by line
  - `npm install` in this repo; this gives you uglify-js
+
+# JSMpeg – MPEG1 Video & MP2 Audio Decoder in JavaScript
 
 JSMpeg is a Video Player written in JavaScript. It consists of an MPEG-TS demuxer, MPEG1 video & MP2 audio decoders, WebGL & Canvas2D renderers and WebAudio sound output. JSMpeg can load static videos via Ajax and allows low latency streaming (~50ms) via WebSockets.
 

@@ -89,3 +89,4 @@ echo "JSMpeg.WASM_BINARY_INLINED='$(base64 jsmpeg.wasm)';" \
 rm jsmpeg.js
 rm jsmpeg.wasm
 
+cp jsmpeg.min.js ../sa-ksf-sdk/jsmpeg.min.js

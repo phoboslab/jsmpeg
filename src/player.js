@@ -1,24 +1,10 @@
 JSMpeg.Player = (function(){ "use strict";
 
-var Player = function(url, options) {
+var Player = function(socket, options) {
 	this.options = options || {};
 
-	if (options.source) {
-		this.source = new options.source(url, options);
-		options.streaming = !!this.source.streaming;
-	}
-	else if (url.match(/^wss?:\/\//)) {
-		this.source = new JSMpeg.Source.WebSocket(url, options);
-		options.streaming = true;
-	}
-	else if (options.progressive !== false) {
-		this.source = new JSMpeg.Source.AjaxProgressive(url, options);
-		options.streaming = false;
-	}
-	else {
-		this.source = new JSMpeg.Source.Ajax(url, options);
-		options.streaming = false;
-	}
+  this.source = new socket;
+  options.streaming = true;
 
 	this.maxAudioLag = options.maxAudioLag || 0.25;
 	this.loop = options.loop !== false;
