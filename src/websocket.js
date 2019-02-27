@@ -1,5 +1,10 @@
 JSMpeg.Source.WebSocket = (function(){ "use strict";
 
+function arrayBufferToString (buffer) {
+  var normalisedArray = new Int8Array(buffer)
+  return String.fromCharCode.apply(null, normalisedArray)
+}
+
 var WSSource = function(url, options) {
 	this.url = url;
 	this.options = options;
@@ -73,9 +78,13 @@ WSSource.prototype.onMessage = function(ev) {
 		this.onEstablishedCallback(this);
 	}
 
-	if (this.destination) {
-		this.destination.write(ev.data);
-	}
+  var asString = arrayBufferToString(ev.data)
+  try {
+    var json = JSON.parse(asString)
+    this.options.jsonCallback && this.options.jsonCallback(json)
+  } catch (ex) {
+    this.destination && this.destination.write(ev.data);
+  }
 };
 
 return WSSource;

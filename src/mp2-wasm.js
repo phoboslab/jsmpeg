@@ -20,16 +20,6 @@ var MP2WASM = function(options) {
 MP2WASM.prototype = Object.create(JSMpeg.Decoder.Base.prototype);
 MP2WASM.prototype.constructor = MP2WASM;
 
-MP2WASM.prototype.initializeWasmDecoder = function() {
-	if (!this.module.instance) {
-		console.warn('JSMpeg: WASM module not compiled yet');
-		return;
-	}
-	this.instance = this.module.instance;
-	this.functions = this.module.instance.exports;
-	this.decoder = this.functions._mp2_decoder_create(this.bufferSize, this.bufferMode);
-};
-
 MP2WASM.prototype.destroy = function() {
 	if (!this.decoder) {
 		return;
@@ -52,8 +42,13 @@ MP2WASM.prototype.bufferSetIndex = function(index) {
 };
 
 MP2WASM.prototype.bufferWrite = function(buffers) {
-	if (!this.decoder) {
-		this.initializeWasmDecoder();
+  if (!this.module.instance) {
+    return;
+  }
+  if (!this.decoder) {
+    this.instance = this.module.instance;
+    this.functions = this.module.instance.exports;
+    this.decoder = this.functions._mp2_decoder_create(this.bufferSize, this.bufferMode);
 	}
 
 	var totalLength = 0;

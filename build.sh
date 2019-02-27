@@ -30,6 +30,6 @@ echo "JSMpeg.WASM_BINARY_INLINED='$(cat wasm.base64)';" \
 
 # Cleanup
 rm jsmpeg.js
-rm jsmpeg.wasm
 
+# Copy to where we need it
 cp jsmpeg.min.js ../sa-ksf-sdk/jsmpeg.min.js

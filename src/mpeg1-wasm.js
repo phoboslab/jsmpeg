@@ -18,16 +18,6 @@ var MPEG1WASM = function(options) {
 MPEG1WASM.prototype = Object.create(JSMpeg.Decoder.Base.prototype);
 MPEG1WASM.prototype.constructor = MPEG1WASM;
 
-MPEG1WASM.prototype.initializeWasmDecoder = function() {
-	if (!this.module.instance) {
-		console.warn('JSMpeg: WASM module not compiled yet');
-		return;
-	}
-	this.instance = this.module.instance;
-	this.functions = this.module.instance.exports;
-	this.decoder = this.functions._mpeg1_decoder_create(this.bufferSize, this.bufferMode);
-};
-
 MPEG1WASM.prototype.destroy = function() {
 	if (!this.decoder) {
 		return;
@@ -50,8 +40,13 @@ MPEG1WASM.prototype.bufferSetIndex = function(index) {
 };
 
 MPEG1WASM.prototype.bufferWrite = function(buffers) {
-	if (!this.decoder) {
-		this.initializeWasmDecoder();
+  if (!this.module.instance) {
+    return;
+  }
+  if (!this.decoder) {
+    this.instance = this.module.instance;
+    this.functions = this.module.instance.exports;
+    this.decoder = this.functions._mpeg1_decoder_create(this.bufferSize, this.bufferMode);
 	}
 
 	var totalLength = 0;
@@ -72,7 +67,7 @@ MPEG1WASM.prototype.bufferWrite = function(buffers) {
 MPEG1WASM.prototype.write = function(pts, buffers) {
 	JSMpeg.Decoder.Base.prototype.write.call(this, pts, buffers);
 
-	if (!this.hasSequenceHeader && this.functions._mpeg1_decoder_has_sequence_header(this.decoder)) {
+	if (!this.hasSequenceHeader && this.functions && this.functions._mpeg1_decoder_has_sequence_header(this.decoder)) {
 		this.loadSequnceHeader();
 	}
 };
