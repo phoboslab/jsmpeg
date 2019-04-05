@@ -68,7 +68,7 @@ var player = new JSMpeg.Player('video.ts' {loop: true, autoplay: true});
 
 or HTML
 ```html
-<div class="jsmpeg" data-url="video.ts" 
+<div class="jsmpeg" data-url="video.ts"
 	data-loop="true" data-autoplay="true"></div>
 ```
 
@@ -185,7 +185,7 @@ ffmpeg \
 	http://localhost:8081/supersecret
 ```
 
-You should now see a live webcam image in your browser. 
+You should now see a live webcam image in your browser.
 
 If ffmpeg failed to open the input video, it's likely that your webcam does not support the given resolution, format or framerate. To get a list of compatible modes run:
 
@@ -245,9 +245,78 @@ Have a look a the [jsmpeg.js source](https://github.com/phoboslab/jsmpeg/blob/ma
 
 Using parts of the library without creating a full player should also be fairly straightforward. E.g. you can create a stand-alone instance of the `JSMpeg.Decoder.MPEG1Video` class, `.connect()` a renderer, `.write()` some data to it and `.decode()` a frame, without touching JSMpeg's other parts.
 
+## Building yourself
+In case of you needs build youself or debug your application.
+
+### Prerequisites
+ - GNU make (search for your platform);
+ - Emscripten EEMCC (See the installation instructions in [download and install page](https://emscripten.org/docs/getting_started/downloads.html#download-and-install));
+ - GNU base64 (search for your platform);
+ - NODE uglifyjs (search for your platform)
+
+### Building
+```bash
+# Change to jsmpeg directory
+$ cd to/jsmpeg/dir
+# Run the make
+$ make
+```
+> The output files will be generated in `build/` directory.
+
+### Make options
+Build the `jsmpeg.min.js` file:
+```bash
+$ make jsmpeg.min.js
+```
+
+Build the `jsmpeg.js` file:
+```bash
+$ make jsmpeg.js
+```
+Build the `jsmpeg.wasm.js` file:
+```bash
+$ make jsmpeg.wasm.js
+```
+
+Build the `jsmpeg.wasm` file:
+```bash
+$ make jsmpeg.wasm
+```
+
+To clean the `build/` directory:
+```bash
+$ make clean
+```
+
+### Loading the JS files individually
+To load the JS files individually, put the `<script>` tags in oder inside the `<body>` tag, like:
+```html
+<body>
+    <!-- ... -->
+    <script type="text/javascript" src="src/jsmpeg.js"></script>
+	<script type="text/javascript" src="src/video-element.js"></script>
+	<script type="text/javascript" src="src/player.js"></script>
+	<script type="text/javascript" src="src/buffer.js"></script>
+	<script type="text/javascript" src="src/ajax.js"></script>
+	<script type="text/javascript" src="src/ajax-progressive.js"></script>
+	<script type="text/javascript" src="src/websocket.js"></script>
+	<script type="text/javascript" src="src/ts.js"></script>
+	<script type="text/javascript" src="src/decoder.js"></script>
+	<script type="text/javascript" src="src/mpeg1.js"></script>
+	<script type="text/javascript" src="src/mpeg1-wasm.js"></script>
+	<script type="text/javascript" src="src/mp2.js"></script>
+	<script type="text/javascript" src="src/mp2-wasm.js"></script>
+	<script type="text/javascript" src="src/webgl.js"></script>
+	<script type="text/javascript" src="src/canvas2d.js"></script>
+	<script type="text/javascript" src="src/webaudio.js"></script>
+	<script type="text/javascript" src="src/wasm-module.js"></script>
+	<script type="text/javascript" src="build/jsmpeg.wasm.js"></script>
+	<!-- ... -->
+<body>
+```
+> Don't forguet to build the `jsmpeg.wasm.js` file.
+
 
 ## Previous Version
 
 The JSMpeg version currently living in this repo is a complete rewrite of the original jsmpeg library that was just able to decode raw mpeg1video. If you're looking for the old version, see the [v0.2 tag](https://github.com/phoboslab/jsmpeg/releases/tag/v0.2).
-
-
