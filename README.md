@@ -250,7 +250,7 @@ In case of you needs build youself or debug your application.
 
 ### Prerequisites
  - GNU make (search for your platform);
- - Emscripten EEMCC (See the installation instructions in [download and install page](https://emscripten.org/docs/getting_started/downloads.html#download-and-install));
+ - Emscripten EMCC (See the installation instructions in [download and install page](https://emscripten.org/docs/getting_started/downloads.html#download-and-install));
  - GNU base64 (search for your platform);
  - NODE uglifyjs (search for your platform)
 
