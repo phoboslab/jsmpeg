@@ -73,6 +73,9 @@ WebGLRenderer.prototype.destroy = function() {
 	gl.deleteProgram(this.loadingProgram);
 
 	gl.deleteBuffer(this.vertexBuffer);
+
+	gl.getExtension('WEBGL_lose_context').loseContext();
+	this.canvas.remove();
 };
 
 WebGLRenderer.prototype.resize = function(width, height) {
