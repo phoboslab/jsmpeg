@@ -33,7 +33,7 @@ The `url` argument accepts a URL to an MPEG .ts file or a WebSocket server (ws:/
 
 The `options` argument supports the following properties:
 
-- `canvas` – the HTML Canvas elment to use for video rendering. If none is given, the renderer will create its own Canvas element.
+- `canvas` – the HTML Canvas element to use for video rendering. If none is given, the renderer will create its own Canvas element.
 - `loop` – whether to loop the video (static files only). Default `true`.
 - `autoplay` - whether to start playing immediately (static files only). Default `false`.
 - `audio` - whether to decode audio. Default `true`.
@@ -166,7 +166,7 @@ git clone https://github.com/phoboslab/jsmpeg.git
 6) Install the Node.js Websocket Library:
 `npm install ws`
 
-7) Start the Websocket relay. Provide a password and a port for the incomming HTTP video stream and a Websocket port that we can connect to in the browser:
+7) Start the Websocket relay. Provide a password and a port for the incoming HTTP video stream and a Websocket port that we can connect to in the browser:
 `node websocket-relay.js supersecret 8081 8082`
 
 8) In a new terminal window (still in the `jsmpeg/` directory, start the `http-server` so we can serve the view-stream.html to the browser:
