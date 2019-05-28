@@ -27,7 +27,6 @@ FetchSource.prototype.start = function() {
 	};
 	
 	self.fetch(this.url, params).then(function(res) {
-		console.log(res.value);
 		if (res.ok && (res.status >= 200 && res.status <= 299)) {
 			this.progress = 1;
 			this.established = true;
