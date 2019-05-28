@@ -63,6 +63,7 @@ cat \
 	src/player.js \
 	src/buffer.js \
 	src/ajax.js \
+	src/fetch.js \
 	src/ajax-progressive.js \
 	src/websocket.js \
 	src/ts.js \
