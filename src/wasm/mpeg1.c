@@ -776,6 +776,7 @@ int read_huffman(bit_buffer_t *bits, const int *code_table);
 
 mpeg1_decoder_t *mpeg1_decoder_create(unsigned int buffer_size, bit_buffer_mode_t buffer_mode) {
 	mpeg1_decoder_t *self = malloc(sizeof(mpeg1_decoder_t));
+	memset(self, 0, sizeof(mpeg1_decoder_t));
 	self->bits = bit_buffer_create(buffer_size, buffer_mode);
 	return self;
 }

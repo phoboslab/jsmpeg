@@ -233,6 +233,7 @@ int decode_frame(mp2_decoder_t *self);
 
 mp2_decoder_t *mp2_decoder_create(unsigned int buffer_size, bit_buffer_mode_t buffer_mode) {
 	mp2_decoder_t *self = malloc(sizeof(mp2_decoder_t));
+	memset(self, 0, sizeof(mp2_decoder_t));
 	self->bits = bit_buffer_create(buffer_size, buffer_mode);
 
 	self->sample_rate = 44100;

@@ -28,7 +28,7 @@ var Player = function(url, options) {
 	this.source.connect(this.demuxer);
 
 	if (!options.disableWebAssembly && JSMpeg.WASMModule.IsSupported()) {
-		this.wasmModule = new JSMpeg.WASMModule();
+		this.wasmModule = JSMpeg.WASMModule.GetModule();
 		options.wasmModule = this.wasmModule;
 	}
 
@@ -73,7 +73,10 @@ var Player = function(url, options) {
 	// loading the source. Otherwise the decoders won't know what to do with 
 	// the source data.
 	if (this.wasmModule) {
-		if (JSMpeg.WASM_BINARY_INLINED) {
+		if (this.wasmModule.ready) {
+			this.startLoading();
+		}
+		else if (JSMpeg.WASM_BINARY_INLINED) {
 			var wasm = JSMpeg.Base64ToArrayBuffer(JSMpeg.WASM_BINARY_INLINED);
 			this.wasmModule.loadFromBuffer(wasm, this.startLoading.bind(this));
 		}

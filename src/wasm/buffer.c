@@ -19,6 +19,7 @@ void bit_buffer_evict(bit_buffer_t *self, unsigned int bytes_needed);
 
 bit_buffer_t *bit_buffer_create(unsigned int initial_byte_capacity, bit_buffer_mode_t mode) {
 	bit_buffer_t *self = malloc(sizeof(bit_buffer_t));
+	memset(self, 0, sizeof(bit_buffer_t));
 	self->mode = mode;
 	self->bytes = malloc(initial_byte_capacity);
 	self->byte_capacity = initial_byte_capacity;
