@@ -12,7 +12,7 @@ WASM.prototype.write = function(buffer) {
 
 WASM.prototype.loadFromFile = function(url, callback) {
 	this.onInitCallback = callback;
-	var ajax = new JSMpeg.Source.Ajax(url);
+	var ajax = new JSMpeg.Source.Ajax(url, {});
 	ajax.connect(this);
 	ajax.start();
 };
