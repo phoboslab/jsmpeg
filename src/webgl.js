@@ -65,13 +65,15 @@ var WebGLRenderer = function(options) {
 WebGLRenderer.prototype.destroy = function() {
 	var gl = this.gl;
 	
-	gl.deleteTexture(this.textureY);
-	gl.deleteTexture(this.textureCb);
-	gl.deleteTexture(this.textureCr);
+	this.deleteTexture(gl.TEXTURE0, this.textureY);
+	this.deleteTexture(gl.TEXTURE1, this.textureCb);
+	this.deleteTexture(gl.TEXTURE2, this.textureCr);
 
+	gl.useProgram(null);
 	gl.deleteProgram(this.program);
 	gl.deleteProgram(this.loadingProgram);
 
+	gl.bindBuffer(gl.ARRAY_BUFFER, null);
 	gl.deleteBuffer(this.vertexBuffer);
 
 	gl.getExtension('WEBGL_lose_context').loseContext();
@@ -197,7 +199,14 @@ WebGLRenderer.prototype.updateTexture = function(unit, texture, w, h, data) {
 			gl.LUMINANCE, gl.UNSIGNED_BYTE, data
 		);
 	}
-}
+};
+
+WebGLRenderer.prototype.deleteTexture = function(unit, texture) {
+	var gl = this.gl;
+	gl.activeTexture(unit);
+	gl.bindTexture(gl.TEXTURE_2D, null);
+	gl.deleteTexture(texture);
+};
 
 WebGLRenderer.IsSupported = function() {
 	try {
