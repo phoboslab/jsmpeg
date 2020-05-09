@@ -82,7 +82,7 @@ var VideoElement = function(element) {
 		this.playButton.style.display = 'none';
 	}
 
-	// Set up the unlock audio buton for iOS devices. iOS only allows us to 
+	// Set up the unlock audio button for iOS devices. iOS only allows us to 
 	// play audio after a user action has initiated playing. For autoplay or 
 	// streaming players we set up a muted speaker icon as the button. For all
 	// others, we can simply use the play button.
