@@ -1,0 +1,13 @@
+ {
+	"name": "docker_web_app",
+	"version": "1.0.0",
+	"description": "Nodejs webserver on Docker",
+	"author": "Aus Rasul <ausrasul@gmail.com>",
+	"scripts": {
+		"start": "node server.js"
+	},
+	"dependencies": {
+		"http-server": "^0.9.0",
+		"ws": "^2.1.0"
+	}
+ }

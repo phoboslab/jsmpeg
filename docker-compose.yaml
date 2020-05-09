@@ -1,0 +1,28 @@
+version: '3'
+services:
+    ffmpeg:
+        build:
+            context: .
+            dockerfile: Dockerfile-ffmpeg
+        depends_on:
+            - ws-relay
+            - http-server
+        links:
+            - ws-relay
+        entrypoint: ffmpeg
+        command: -f v4l2 -framerate 25 -video_size 640x480 -i /dev/video0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1000k -bf 0 http://ws-relay:8081/sec
+        devices:
+            - "/dev/video0:/dev/video0"
+    http-server:
+        build:
+            context: .
+            dockerfile: Dockerfile-http
+        ports:
+            - "8090:8090"
+    ws-relay:
+        build:
+            context: .
+            dockerfile: Dockerfile-ws
+        ports:
+            - "8081:8081"
+            - "8082:8082"
