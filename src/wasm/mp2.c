@@ -217,7 +217,7 @@ typedef struct mp2_decoder_t {
 	float channel_left[SAMPLES_PER_FRAME];
 	float channel_right[SAMPLES_PER_FRAME];
 	float D[1024];
-	float V[1024];
+	float V[2][1024];
 	int U[32];
 } mp2_decoder_t;
 
@@ -459,7 +459,7 @@ int decode_frame(mp2_decoder_t *self) {
 				self->v_pos = (self->v_pos - 64) & 1023;
 
 				for (int ch = 0;  ch < 2; ch++) {
-					matrix_transform(self->sample[ch], p, self->V, self->v_pos);
+					matrix_transform(self->sample[ch], p, self->V[ch], self->v_pos);
 
 					// Build U, windowing, calculate output
 					memset(self->U, 0, sizeof(self->U));
@@ -468,7 +468,7 @@ int decode_frame(mp2_decoder_t *self) {
 					int v_index = (self->v_pos % 128) >> 1;
 					while (v_index < 1024) {
 						for (int i = 0; i < 32; ++i) {
-							self->U[i] += self->D[d_index++] * self->V[v_index++];
+							self->U[i] += self->D[d_index++] * self->V[ch][v_index++];
 						}
 
 						v_index += 128-32;
@@ -479,7 +479,7 @@ int decode_frame(mp2_decoder_t *self) {
 					d_index -= (512 - 32);
 					while (v_index < 1024) {
 						for (int i = 0; i < 32; ++i) {
-							self->U[i] += self->D[d_index++] * self->V[v_index++];
+							self->U[i] += self->D[d_index++] * self->V[ch][v_index++];
 						}
 
 						v_index += 128-32;
