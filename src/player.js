@@ -7,6 +7,10 @@ var Player = function(url, options) {
 		this.source = new options.source(url, options);
 		options.streaming = !!this.source.streaming;
 	}
+	else if (url && typeof url.pipe == 'function') {
+		this.source = new JSMpeg.Source.Stream(url, options);
+		options.streaming = true;
+	}
 	else if (url.match(/^wss?:\/\//)) {
 		this.source = new JSMpeg.Source.WebSocket(url, options);
 		options.streaming = true;
