@@ -21,10 +21,10 @@
 # source ./emsdk_env.sh
 
 # The $EMSCRIPTEN_LIB var needs to point to the correct directory within the sdk
-# that has emmalloc.cpp. This usually is $EMSDK/fastcomp/emscripten/system/lib
-# but this might differ per system. I don't know.
-# per system. There used to be an $EMSCRIPTEN var set by the emsdk_env script
-# that pointed to the correct directory, but this seems to have gone too.
+# that has emmalloc.cpp. This is usually $EMSDK/fastcomp/emscripten/system/lib
+# but it might differ per system. I don't know.
+# There used to be an $EMSCRIPTEN var set by the emsdk_env script that pointed
+# to the correct directory, but this seems to have gone now.
 
 # In conclusion, emscripten encapsulates everything that I hate about native 
 # development :/
