@@ -89,6 +89,7 @@ cat \
 	src/fetch.js \
 	src/ajax-progressive.js \
 	src/websocket.js \
+	src/stream.js \
 	src/ts.js \
 	src/decoder.js \
 	src/mpeg1.js \
