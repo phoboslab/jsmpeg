@@ -8,14 +8,37 @@
 # friends.
 # Note memcpy, memmove and memset are explicitly exported, otherwise they will
 # be eliminated by the SIDE_MODULE=2 setting - not sure why that happens.
+
+# This NEEDS to be compiled with emscripten 1.38.47. Newer versions mess with
+# malloc and friends and need some more glue code for side modules that I 
+# haven't quite worked out yet. If you have any idea how to build a SIDE_MODULE
+# (or STANDALONE_WASM - as seems to be the new deal) with support for malloc,
+# please let me know or file a PR.
+
+# To install the correct version, issue the following in your emsdk directory:
+# ./emsdk install 1.38.47
+# ./emsdk activate 1.38.47
+# source ./emsdk_env.sh
+
+# The $EMSCRIPTEN_LIB var needs to point to the correct directory within the sdk
+# that has emmalloc.cpp. This usually is $EMSDK/fastcomp/emscripten/system/lib
+# but this might differ per system. I don't know.
+# per system. There used to be an $EMSCRIPTEN var set by the emsdk_env script
+# that pointed to the correct directory, but this seems to have gone too.
+
+# In conclusion, emscripten encapsulates everything that I hate about native 
+# development :/
+
+EMSCRIPTEN_LIB=$EMSDK/fastcomp/emscripten/system/lib
+
 emcc \
 	src/wasm/mpeg1.c \
 	src/wasm/mp2.c \
 	src/wasm/buffer.c \
-	$EMSCRIPTEN/system/lib/emmalloc.cpp \
-	$EMSCRIPTEN/system/lib/libc/musl/src/string/memcpy.c \
-	$EMSCRIPTEN/system/lib/libc/musl/src/string/memmove.c \
-	$EMSCRIPTEN/system/lib/libc/musl/src/string/memset.c \
+	$EMSCRIPTEN_LIB/emmalloc.cpp \
+	$EMSCRIPTEN_LIB/libc/musl/src/string/memcpy.c \
+	$EMSCRIPTEN_LIB/libc/musl/src/string/memmove.c \
+	$EMSCRIPTEN_LIB/libc/musl/src/string/memset.c \
 	-s WASM=1 \
 	-s SIDE_MODULE=2 \
 	-s TOTAL_STACK=5242880\
