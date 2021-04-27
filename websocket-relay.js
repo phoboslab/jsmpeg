@@ -102,7 +102,7 @@ var handleOutputConnection = function(){
 		});
 		
 		client.on('error', function(e){
-			console.log('Erro, cliente desconectado: '+e);
+			console.log('Error, client disconnected: '+e);
 			process.title = "("+ws_output.clients.size+") Stream Server";
 		});
 		
