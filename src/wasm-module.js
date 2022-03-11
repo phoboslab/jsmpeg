@@ -3,15 +3,29 @@ JSMpeg.WASMModule = (function(){ "use strict";
 var WASM = function() {
 	this.stackSize = 5 * 1024 * 1024; // emscripten default
 	this.pageSize = 64 * 1024; // wasm page size
-	this.onInitCallback = null;
+	this.onInitCallbacks = [];
 	this.ready = false;
+	this.loadingFromFileStarted = false;
+	this.loadingFromBufferStarted = false;
 };
 
 WASM.prototype.write = function(buffer) {
-	this.loadFromBuffer(buffer, this.onInitCallback);
+	this.loadFromBuffer(buffer);
 };
 
 WASM.prototype.loadFromFile = function(url, callback) {
+	if (callback) {
+		this.onInitCallbacks.push(callback);
+	}
+
+	// Make sure this WASM Module is only instantiated once. If loadFromFile()
+	// was already called, bail out here. On instantiation all pending
+	// onInitCallbacks will be called.
+	if (this.loadingFromFileStarted) {
+		return;
+	}
+	this.loadingFromFileStarted = true;
+
 	this.onInitCallback = callback;
 	var ajax = new JSMpeg.Source.Ajax(url, {});
 	ajax.connect(this);
@@ -19,9 +33,23 @@ WASM.prototype.loadFromFile = function(url, callback) {
 };
 
 WASM.prototype.loadFromBuffer = function(buffer, callback) {
+	if (callback) {
+		this.onInitCallbacks.push(callback);
+	}
+
+	// Make sure this WASM Module is only instantiated once. If loadFromBuffer()
+	// was already called, bail out here. On instantiation all pending
+	// onInitCallbacks will be called.
+	if (this.loadingFromBufferStarted) {
+		return;
+	}
+	this.loadingFromBufferStarted = true;
+
 	this.moduleInfo = this.readDylinkSection(buffer);
 	if (!this.moduleInfo) {
-		this.callback && this.callback(null);
+		for (var i = 0; i < this.onInitCallbacks.length; i++) {
+			this.onInitCallbacks[i](null);
+		}
 		return;
 	}
 
@@ -46,7 +74,9 @@ WASM.prototype.loadFromBuffer = function(buffer, callback) {
 		}
 		this.createHeapViews();
 		this.ready = true;
-		callback && callback(this);
+		for (var i = 0; i < this.onInitCallbacks.length; i++) {
+			this.onInitCallbacks[i](this);
+		}
 	}.bind(this))
 };
 
