@@ -73,11 +73,11 @@ MPEG1WASM.prototype.write = function(pts, buffers) {
 	JSMpeg.Decoder.Base.prototype.write.call(this, pts, buffers);
 
 	if (!this.hasSequenceHeader && this.functions._mpeg1_decoder_has_sequence_header(this.decoder)) {
-		this.loadSequnceHeader();
+		this.loadSequenceHeader();
 	}
 };
 
-MPEG1WASM.prototype.loadSequnceHeader = function() {
+MPEG1WASM.prototype.loadSequenceHeader = function() {
 	this.hasSequenceHeader = true;
 	this.frameRate = this.functions._mpeg1_decoder_get_frame_rate(this.decoder);
 	this.codedSize = this.functions._mpeg1_decoder_get_coded_size(this.decoder);
