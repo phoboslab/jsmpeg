@@ -26,6 +26,14 @@ var WebGLRenderer = function(options) {
 		throw new Error('Failed to get WebGL Context');
 	}
 
+	// WebGLRenderer.destroy() will explicitly lose the GL context. Calling 
+	// .getContext('webgl') on a Canvas element whose GL context has previously
+	// been lost, will return an un-restored GL context. So we try to catch this
+	// case here and try restore the GL context.
+	if (this.gl.isContextLost()) {
+		this.gl.getExtension('WEBGL_lose_context').restoreContext();
+	}
+
 	this.canvas.addEventListener('webglcontextlost', this.handleContextLost.bind(this), false);
 	this.canvas.addEventListener('webglcontextrestored', this.handleContextRestored.bind(this), false);
 
