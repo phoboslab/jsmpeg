@@ -83,10 +83,10 @@ A `JSMpeg.Player` instance supports the following methods and properties:
 - `.pause()` – pause playback
 - `.stop()` – stop playback and seek to the beginning
 - `.nextFrame()` – advance playback by one video frame. This does not decode audio. Returns `true` on success, `false` when there's not enough data.
-- `.destroy()` – stops playback, disconnects the source and cleans up WebGL and WebAudio state. The player can not be used afterwards.
 - `.volume` – get or set the audio volume (0-1)
 - `.currentTime` – get or set the current playback position in seconds
 - `.paused` – read only, wether playback is paused
+- `.destroy()` – stops playback, disconnects the source and cleans up WebGL and WebAudio state. The player can not be used afterwards. If the player created the canvas element it is removed from the document.
 
 
 ## Encoding Video/Audio for JSMpeg

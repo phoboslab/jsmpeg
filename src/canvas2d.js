@@ -1,7 +1,14 @@
 JSMpeg.Renderer.Canvas2D = (function(){ "use strict";
 
 var CanvasRenderer = function(options) {
-	this.canvas = options.canvas || document.createElement('canvas');
+	if (options.canvas) {
+		this.canvas = options.canvas;
+		this.ownsCanvasElement = false;
+	}
+	else {
+		this.canvas = document.createElement('canvas');
+		this.ownsCanvasElement = true;
+	}
 	this.width = this.canvas.width;
 	this.height = this.canvas.height;
 	this.enabled = true;
@@ -10,7 +17,9 @@ var CanvasRenderer = function(options) {
 };
 
 CanvasRenderer.prototype.destroy = function() {
-	// Nothing to do here
+	if (this.ownsCanvasElement) {
+		this.canvas.remove();
+	}
 };
 
 CanvasRenderer.prototype.resize = function(width, height) {
