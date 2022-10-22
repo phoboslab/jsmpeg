@@ -113,7 +113,9 @@ var JSMpeg = {
 
 // Automatically create players for all found <div class="jsmpeg"/> elements.
 if (document.readyState === 'complete') {
-	JSMpeg.CreateVideoElements();
+	setTimeout(function() {
+		JSMpeg.CreateVideoElements();
+	});
 }
 else {
 	document.addEventListener('DOMContentLoaded', JSMpeg.CreateVideoElements);
